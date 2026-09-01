@@ -88,6 +88,14 @@ function createWindow(): BrowserWindow {
 
   win.once('ready-to-show', () => win.show());
 
+  // Keep the renderer's fullscreen button in sync with the real window state,
+  // which the OS can also change (F11, the green button, a window manager).
+  const reportFullScreen = () => {
+    if (!win.isDestroyed()) win.webContents.send('window:fullscreen-changed', win.isFullScreen());
+  };
+  win.on('enter-full-screen', reportFullScreen);
+  win.on('leave-full-screen', reportFullScreen);
+
   // External links open in the user's browser, never in an app window.
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) void shell.openExternal(url);
@@ -115,6 +123,20 @@ function registerIpc(): void {
 
   ipcMain.handle('state:save', (_event, next: unknown) => {
     store.set('state', next);
+  });
+
+  /** Real OS fullscreen — the window loses its frame and covers the display. */
+  ipcMain.handle('window:set-fullscreen', (event, value: unknown): boolean => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return false;
+    const next = typeof value === 'boolean' ? value : !win.isFullScreen();
+    win.setFullScreen(next);
+    return next;
+  });
+
+  ipcMain.handle('window:is-fullscreen', (event): boolean => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return win ? win.isFullScreen() : false;
   });
 
   ipcMain.handle('vision:add', async (event): Promise<VisionImage[]> => {

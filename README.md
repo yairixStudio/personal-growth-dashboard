@@ -19,7 +19,9 @@ React + TypeScript + Vite in the renderer, Electron around it. Everything stays 
 
 Items reorder by drag and drop, and can be dragged **between** list panels. Workspaces reorder the same way.
 
-**Focus mode** spotlights one panel at a time and dims the rest, cycling on a timer you control. Click a panel to pin it, or press <kbd>Esc</kbd> to leave.
+**Focus mode** clears the grid and puts one panel in the true centre of the screen, enlarged for reading at a distance. It advances on a timer you control. <kbd>F5</kbd> starts it, <kbd>←</kbd> / <kbd>→</kbd> step, <kbd>Space</kbd> pauses, <kbd>Esc</kbd> leaves.
+
+**Fullscreen** is real OS fullscreen — the window drops its frame and takes the whole display, the way a video player does. Toggle it from the toolbar, from inside focus mode, or with <kbd>F11</kbd>. The button tracks the actual window state, so changing it outside the app keeps the UI in sync.
 
 **Brainwave player** generates binaural tones at delta / theta / alpha / beta / gamma frequencies with an optional pink-noise bed. Everything is synthesised live with the Web Audio API — no audio files, no network. Headphones required for the effect to work.
 
@@ -37,6 +39,21 @@ npm run typecheck        # renderer and main process, both strict
 npm run build            # typecheck, bundle the renderer, compile the main process
 npm run electron:build   # packaged desktop app into release/
 ```
+
+### Packaging notes (Windows)
+
+Builds produced here are **not code-signed**. Two consequences:
+
+- **Smart App Control** blocks unsigned executables outright. When it is enforced
+  (`HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy` → `VerifiedAndReputablePolicyState = 1`),
+  the packaged app refuses to start with "An Application Control policy has blocked
+  this file". Turning Smart App Control off is **irreversible** — Windows cannot
+  re-enable it without a reinstall — so weigh that before changing it. Signing the
+  build with a trusted certificate is the other way out.
+- **`electron-builder` needs symlink privileges** to unpack its `winCodeSign`
+  toolchain, which fails without Developer Mode or an elevated shell. `electron-builder --dir`
+  still produces a working `release/win-unpacked/`; only the NSIS installer target
+  needs the privilege.
 
 `npm run dev` starts only the Vite server. On its own that's not much use — the renderer expects the `window.desktop` bridge that the Electron preload provides.
 

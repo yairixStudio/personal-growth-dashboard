@@ -8,6 +8,9 @@ export interface DesktopApi {
   saveState: (state: unknown) => Promise<void>;
   addVisionImages: () => Promise<VisionImage[]>;
   removeVisionImage: (file: string) => Promise<void>;
+  setFullscreen: (value?: boolean) => Promise<boolean>;
+  isFullscreen: () => Promise<boolean>;
+  onFullscreenChange: (callback: (value: boolean) => void) => () => void;
 }
 
 declare global {
