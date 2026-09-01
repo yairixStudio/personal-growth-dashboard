@@ -89,6 +89,18 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isFocusMode]);
 
+  // Without this, a file dropped anywhere but a panel makes the window navigate
+  // to it and the app disappears.
+  useEffect(() => {
+    const swallow = (event: DragEvent) => event.preventDefault();
+    window.addEventListener('dragover', swallow);
+    window.addEventListener('drop', swallow);
+    return () => {
+      window.removeEventListener('dragover', swallow);
+      window.removeEventListener('drop', swallow);
+    };
+  }, []);
+
   const onDragEnd = useCallback(
     (result: DropResult) => {
       const { source, destination, type } = result;
@@ -121,6 +133,18 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
     }
   }, [dispatch]);
 
+  const importVisionImages = useCallback(
+    async (paths: string[]) => {
+      try {
+        const images = await window.desktop.importVisionImages(paths);
+        dispatch({ type: 'vision/add', images });
+      } catch (error) {
+        console.error('Could not import images.', error);
+      }
+    },
+    [dispatch],
+  );
+
   const removeVisionImage = useCallback(
     (image: VisionImage) => {
       dispatch({ type: 'vision/remove', id: image.id });
@@ -133,7 +157,7 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
 
   /** One panel, rendered the same way in the grid and on the focus stage. */
   const renderPanel = useCallback(
-    (panel: PanelDef) => {
+    (panel: PanelDef, bleed = false) => {
       const shared = {
         title: t(panel.titleKey),
         icon: panel.icon,
@@ -173,13 +197,15 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
         <VisionBoardPanel
           key={panel.key}
           {...shared}
+          bleed={bleed}
           images={workspace.vision}
           onAdd={() => void addVisionImages()}
+          onDropFiles={(paths) => void importVisionImages(paths)}
           onRemove={removeVisionImage}
         />
       );
     },
-    [addVisionImages, dispatch, removeVisionImage, t, workspace],
+    [addVisionImages, dispatch, importVisionImages, removeVisionImage, t, workspace],
   );
 
   const settingsDialog = showSettings && (
@@ -212,6 +238,7 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
           direction={direction}
           isPaused={isPaused}
           isFullscreen={isFullscreen}
+          bleed={activePanel.kind === 'vision'}
           delayMs={state.settings.focusDelayMs}
           onPrev={() => {
             goTo(spotlightRef.current - 1, -1);
@@ -230,7 +257,7 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
           onExit={() => setIsFocusMode(false)}
           onDelayChange={(value) => dispatch({ type: 'settings/focusDelay', value })}
         >
-          {renderPanel(activePanel)}
+          {renderPanel(activePanel, activePanel.kind === 'vision')}
         </FocusStage>
       ) : (
         <div className="min-h-screen bg-gray-50 p-5 transition-colors dark:bg-gray-900">

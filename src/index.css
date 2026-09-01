@@ -28,13 +28,14 @@ html.dark {
   background-color: theme('colors.gray.900');
 }
 
-/* Focus mode: the hairline countdown drains toward the reading direction. */
-@keyframes focus-countdown {
+/* Focus mode: the active navigation dot fills over the interval, so the moment
+   of the next change is readable at a glance without any extra chrome. */
+@keyframes dot-fill {
   from {
-    transform: scaleX(1);
+    width: 0%;
   }
   to {
-    transform: scaleX(0);
+    width: 100%;
   }
 }
 

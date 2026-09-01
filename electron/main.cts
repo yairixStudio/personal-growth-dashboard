@@ -168,6 +168,28 @@ function registerIpc(): void {
     return added;
   });
 
+  /** Same copy-into-userData flow as the dialog, for files dropped onto the board. */
+  ipcMain.handle('vision:import', async (_event, paths: unknown): Promise<VisionImage[]> => {
+    if (!Array.isArray(paths)) return [];
+
+    const added: VisionImage[] = [];
+    for (const source of paths) {
+      if (typeof source !== 'string') continue;
+      const extension = path.extname(source).toLowerCase();
+      if (!ALLOWED_EXTENSIONS.has(extension)) continue;
+
+      const id = randomUUID();
+      const file = `${id}${extension}`;
+      try {
+        await fs.copyFile(source, path.join(visionDir, file));
+        added.push({ id, file, name: path.basename(source, extension) });
+      } catch (error) {
+        console.error(`Could not copy ${source}:`, error);
+      }
+    }
+    return added;
+  });
+
   ipcMain.handle('vision:remove', async (_event, file: unknown) => {
     if (typeof file !== 'string') return;
     const target = path.join(visionDir, path.basename(file));

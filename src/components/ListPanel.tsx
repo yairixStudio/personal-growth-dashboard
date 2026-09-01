@@ -1,10 +1,11 @@
 /** A reorderable list of short text items. Items can also be dragged between
  *  list panels — every list shares the app-level DragDropContext. */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { GripVertical, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
+import { hasText, useDropZone } from '../lib/useDropZone';
 import type { Item, ListId } from '../types';
 import { Panel } from './Panel';
 
@@ -47,6 +48,20 @@ export function ListPanel({
     if (isAdding) addRef.current?.focus();
   }, [isAdding]);
 
+  // Each dropped line becomes its own item — pasting a list Just Works.
+  const handleDrop = useCallback(
+    (data: DataTransfer) => {
+      data
+        .getData('text/plain')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .forEach((line) => onAdd(line));
+    },
+    [onAdd],
+  );
+  const { isOver, dropProps } = useDropZone(handleDrop, hasText);
+
   const commitAdd = () => {
     const text = draft.trim();
     if (text) onAdd(text);
@@ -63,6 +78,8 @@ export function ListPanel({
       onSelect={onSelect}
       onAdd={() => setIsAdding(true)}
       addLabel={t('list.addTo', { title })}
+      isDropTarget={isOver}
+      dropProps={dropProps}
     >
       {isAdding && (
         <div className="mb-3 flex gap-2" onClick={(event) => event.stopPropagation()}>
@@ -95,7 +112,9 @@ export function ListPanel({
             }`}
           >
             {items.length === 0 && !dropSnapshot.isDraggingOver && (
-              <li className="px-1 py-2 text-sm text-gray-400 dark:text-gray-500">{t('list.empty')}</li>
+              <li className="px-1 py-2 text-sm text-gray-400 dark:text-gray-500">
+                {isOver ? t('list.dropHint') : t('list.empty')}
+              </li>
             )}
 
             {items.map((item, index) => (

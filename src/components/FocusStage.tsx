@@ -5,7 +5,7 @@
  * of the screen at a readable size — the point of the mode. Only one panel is
  * mounted at a time, which also keeps a single Droppable of any given id alive.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Pause, Play, X } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 
@@ -13,10 +13,12 @@ interface FocusStageProps {
   index: number;
   total: number;
   label: string;
-  /** Which way the last move went, so the panel slides in from the right side. */
+  /** Which way the last move went, so the panel slides in from that side. */
   direction: 1 | -1;
   isPaused: boolean;
   isFullscreen: boolean;
+  /** Let the panel use the whole stage instead of the centred card column. */
+  bleed: boolean;
   delayMs: number;
   onPrev: () => void;
   onNext: () => void;
@@ -29,7 +31,7 @@ interface FocusStageProps {
 }
 
 const control =
-  'grid h-10 w-10 place-items-center rounded-full bg-white/80 text-gray-600 shadow-sm backdrop-blur transition-colors hover:bg-white dark:bg-gray-800/80 dark:text-gray-300 dark:hover:bg-gray-800';
+  'grid h-10 w-10 place-items-center rounded-full bg-white/70 text-gray-500 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-gray-800 dark:bg-gray-800/70 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100';
 
 export function FocusStage({
   index,
@@ -38,6 +40,7 @@ export function FocusStage({
   direction,
   isPaused,
   isFullscreen,
+  bleed,
   delayMs,
   onPrev,
   onNext,
@@ -49,8 +52,6 @@ export function FocusStage({
   children,
 }: FocusStageProps) {
   const { t, isRtl } = useI18n();
-  const [remaining, setRemaining] = useState(delayMs);
-  const startedAt = useRef(Date.now());
 
   // Arrow keys step through panels; space pauses. Ignored while typing.
   useEffect(() => {
@@ -73,52 +74,35 @@ export function FocusStage({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isRtl, onNext, onPrev, onTogglePause]);
 
-  // A cheap ticker purely for the countdown text; the bar itself is pure CSS.
-  useEffect(() => {
-    startedAt.current = Date.now();
-    setRemaining(delayMs);
-    if (isPaused) return;
-    const tick = window.setInterval(() => {
-      setRemaining(Math.max(0, delayMs - (Date.now() - startedAt.current)));
-    }, 100);
-    return () => window.clearInterval(tick);
-  }, [index, delayMs, isPaused]);
-
-  const seconds = Math.max(1, Math.ceil(remaining / 1000));
-
   // "Next" enters from the right in LTR and from the left in RTL.
   const slide = (direction === 1) !== isRtl ? 'forward' : 'back';
 
+  /** A thin edge strip: barely there until the pointer is near it. */
+  const edgeButton = (side: 'start' | 'end', onClick: () => void, label: string, forward: boolean) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`group absolute inset-y-0 z-20 flex w-20 items-center justify-center focus:outline-none ${
+        side === 'start' ? 'start-0' : 'end-0'
+      }`}
+    >
+      <span className="grid h-12 w-12 place-items-center rounded-full text-gray-400 opacity-25 transition-all duration-200 group-hover:bg-white group-hover:text-gray-700 group-hover:opacity-100 group-hover:shadow-lg group-focus-visible:opacity-100 dark:group-hover:bg-gray-800 dark:group-hover:text-gray-100">
+        {forward !== isRtl ? <ChevronRight className="h-6 w-6" aria-hidden /> : <ChevronLeft className="h-6 w-6" aria-hidden />}
+      </span>
+    </button>
+  );
+
   return (
     <div className="fixed inset-0 z-30 flex flex-col bg-gradient-to-b from-gray-100 to-gray-200 dark:from-gray-900 dark:to-black">
-      {/* Hairline progress: the only always-visible hint of how long is left. */}
-      <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden" aria-hidden>
-        {!isPaused && (
-          <div
-            key={`${index}-${delayMs}`}
-            className="h-full w-full bg-blue-500/40"
-            style={{
-              transformOrigin: isRtl ? 'right center' : 'left center',
-              animation: `focus-countdown ${delayMs}ms linear forwards`,
-            }}
-          />
-        )}
-      </div>
-
       <div className="flex items-center justify-between gap-3 p-4">
-        <span className="flex items-baseline gap-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-          <span>
-            {label} · {index + 1}/{total}
-          </span>
-          {!isPaused && (
-            <span className="text-xs tabular-nums text-gray-400 opacity-60 dark:text-gray-500">
-              {t('focus.remaining', { n: seconds })}
-            </span>
-          )}
+        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+          {label} · {index + 1}/{total}
         </span>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-full bg-white/80 px-3 py-2 shadow-sm backdrop-blur dark:bg-gray-800/80">
+          <div className="flex items-center gap-2 rounded-full bg-white/70 px-3 py-2 shadow-sm backdrop-blur dark:bg-gray-800/70">
             <input
               type="range"
               min={1000}
@@ -161,40 +145,65 @@ export function FocusStage({
       </div>
 
       {/* The stage itself — the panel is centred on both axes. */}
-      <div className="flex min-h-0 flex-1 items-center justify-center gap-4 px-4 pb-2">
-        <button type="button" onClick={onPrev} className={`${control} shrink-0`} aria-label={t('focus.prev')} title={t('focus.prev')}>
-          {isRtl ? <ChevronRight className="h-5 w-5" aria-hidden /> : <ChevronLeft className="h-5 w-5" aria-hidden />}
-        </button>
+      <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-2">
+        {edgeButton('start', onPrev, t('focus.prev'), false)}
 
-        <div className="flex max-h-full w-full max-w-3xl justify-center overflow-y-auto overflow-x-hidden">
+        <div
+          className={`flex max-h-full justify-center overflow-y-auto overflow-x-hidden px-16 ${
+            bleed ? 'w-full' : 'w-full max-w-3xl'
+          }`}
+        >
           {/* Scaled up for reading at a distance — this mode is meant to be projected. */}
           <div
             key={index}
-            className="w-full [&>section]:p-8 [&_h2]:text-3xl [&_h2_svg]:h-8 [&_h2_svg]:w-8 [&_input]:text-lg [&_li_button]:text-xl [&_li_button]:py-1.5 [&_p]:text-lg"
+            className={
+              bleed
+                ? 'w-full'
+                : 'w-full [&>section]:p-8 [&_h2]:text-3xl [&_h2_svg]:h-8 [&_h2_svg]:w-8 [&_input]:text-lg [&_li_button]:text-xl [&_li_button]:py-1.5 [&_p]:text-lg'
+            }
             style={{ animation: `focus-slide-${slide} 260ms cubic-bezier(0.22, 1, 0.36, 1)` }}
           >
             {children}
           </div>
         </div>
 
-        <button type="button" onClick={onNext} className={`${control} shrink-0`} aria-label={t('focus.next')} title={t('focus.next')}>
-          {isRtl ? <ChevronLeft className="h-5 w-5" aria-hidden /> : <ChevronRight className="h-5 w-5" aria-hidden />}
-        </button>
+        {edgeButton('end', onNext, t('focus.next'), true)}
       </div>
 
+      {/* Progress lives in the dots: the active one fills over the interval. */}
       <div className="flex items-center justify-center gap-2 pb-5 pt-2">
-        {Array.from({ length: total }, (_, dot) => (
-          <button
-            key={dot}
-            type="button"
-            onClick={() => onGo(dot)}
-            aria-label={t('focus.goTo', { n: dot + 1 })}
-            aria-current={dot === index}
-            className={`h-2 rounded-full transition-all ${
-              dot === index ? 'w-6 bg-blue-500' : 'w-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500'
-            }`}
-          />
-        ))}
+        {Array.from({ length: total }, (_, dot) => {
+          const active = dot === index;
+          return (
+            <button
+              key={dot}
+              type="button"
+              onClick={() => onGo(dot)}
+              aria-label={t('focus.goTo', { n: dot + 1 })}
+              aria-current={active}
+              className="group py-1.5"
+            >
+              <span
+                className={`block h-1.5 overflow-hidden rounded-full transition-all duration-300 ${
+                  active
+                    ? 'w-10 bg-gray-300/80 dark:bg-gray-600/80'
+                    : 'w-1.5 bg-gray-300 group-hover:bg-gray-400 dark:bg-gray-600 dark:group-hover:bg-gray-500'
+                }`}
+              >
+                {active &&
+                  (isPaused ? (
+                    <span className="block h-full w-full rounded-full bg-blue-500/70" />
+                  ) : (
+                    <span
+                      key={`${index}-${delayMs}`}
+                      className="block h-full rounded-full bg-blue-500"
+                      style={{ animation: `dot-fill ${delayMs}ms linear forwards` }}
+                    />
+                  ))}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

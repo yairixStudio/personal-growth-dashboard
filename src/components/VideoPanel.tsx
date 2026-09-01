@@ -1,9 +1,10 @@
 /** YouTube shelf. Only ids that match the embed pattern are ever loaded, so a
  *  pasted non-YouTube URL is reported rather than dropped into an iframe. */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Trash2, Video as VideoIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
+import { hasText, useDropZone } from '../lib/useDropZone';
 import type { VideoItem } from '../types';
 import { Panel } from './Panel';
 
@@ -54,6 +55,16 @@ export function VideoPanel({
   const selected = videos.find((video) => video.id === selectedId) ?? null;
   const selectedEmbedId = selected ? youtubeId(selected.url) : null;
 
+  // A dropped link opens the form pre-filled rather than inventing a title.
+  const handleDrop = useCallback((data: DataTransfer) => {
+    const url = (data.getData('text/uri-list') || data.getData('text/plain')).trim();
+    if (!url) return;
+    setDraftUrl(url);
+    setError(youtubeId(url) ? null : t('video.notYouTube'));
+    setIsAdding(true);
+  }, [t]);
+  const { isOver, dropProps } = useDropZone(handleDrop, hasText);
+
   const submit = () => {
     const name = draftTitle.trim();
     const url = draftUrl.trim();
@@ -81,6 +92,8 @@ export function VideoPanel({
       onSelect={onSelect}
       onAdd={() => setIsAdding(true)}
       addLabel={t('video.add')}
+      isDropTarget={isOver}
+      dropProps={dropProps}
     >
       {isAdding && (
         <div className="mb-3 space-y-2" onClick={(event) => event.stopPropagation()}>
@@ -124,7 +137,7 @@ export function VideoPanel({
       )}
 
       {videos.length === 0 ? (
-        <p className="py-2 text-sm text-gray-400 dark:text-gray-500">{t('video.empty')}</p>
+        <p className="py-2 text-sm text-gray-400 dark:text-gray-500">{isOver ? t('video.dropHint') : t('video.empty')}</p>
       ) : (
         <div className="space-y-3" onClick={(event) => event.stopPropagation()}>
           <div className="aspect-video w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">

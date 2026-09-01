@@ -2,7 +2,7 @@
  * The only bridge between the renderer and Node. Everything exposed here is a
  * promise-returning function over IPC — no Electron or Node objects cross over.
  */
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 
 interface VisionImage {
   id: string;
@@ -15,7 +15,18 @@ const desktop = {
   saveState: (state: unknown): Promise<void> => ipcRenderer.invoke('state:save', state),
 
   addVisionImages: (): Promise<VisionImage[]> => ipcRenderer.invoke('vision:add'),
+  importVisionImages: (paths: string[]): Promise<VisionImage[]> => ipcRenderer.invoke('vision:import', paths),
   removeVisionImage: (file: string): Promise<void> => ipcRenderer.invoke('vision:remove', file),
+
+  /** Electron 32+ removed `File.path`; this is the supported replacement, and it
+   *  has to be called here because `webUtils` does not cross the bridge. */
+  getPathForFile: (file: File): string => {
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return '';
+    }
+  },
 
   setFullscreen: (value?: boolean): Promise<boolean> => ipcRenderer.invoke('window:set-fullscreen', value),
   isFullscreen: (): Promise<boolean> => ipcRenderer.invoke('window:is-fullscreen'),

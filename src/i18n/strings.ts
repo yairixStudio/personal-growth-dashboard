@@ -37,6 +37,7 @@ const en = {
   'list.editHint': 'Click to edit',
   'list.reorder': 'Reorder',
   'list.delete': 'Delete "{text}"',
+  'list.dropHint': 'Drop text here to add it',
 
   'video.empty': 'No videos yet.',
   'video.add': 'Add a video',
@@ -47,8 +48,10 @@ const en = {
   'video.notYouTube': "That doesn't look like a YouTube link.",
   'video.unplayable': 'Unplayable link',
   'video.remove': 'Remove "{title}"',
+  'video.dropHint': 'Drop a YouTube link here',
 
   'vision.add': 'Add images',
+  'vision.dropHint': 'Drop images here from your computer',
   'vision.view': 'View {name}',
   'vision.remove': 'Remove {name}',
 
@@ -144,6 +147,7 @@ const he: Record<StringKey, string> = {
   'list.editHint': 'לחץ לעריכה',
   'list.reorder': 'שינוי סדר',
   'list.delete': 'מחיקת "{text}"',
+  'list.dropHint': 'גרור לכאן טקסט כדי להוסיף',
 
   'video.empty': 'אין עדיין סרטונים.',
   'video.add': 'הוספת סרטון',
@@ -154,8 +158,10 @@ const he: Record<StringKey, string> = {
   'video.notYouTube': 'זה לא נראה כמו קישור ליוטיוב.',
   'video.unplayable': 'קישור שאי אפשר לנגן',
   'video.remove': 'הסרת "{title}"',
+  'video.dropHint': 'גרור לכאן קישור ליוטיוב',
 
   'vision.add': 'הוספת תמונות',
+  'vision.dropHint': 'גרור לכאן תמונות מהמחשב',
   'vision.view': 'הצגת {name}',
   'vision.remove': 'הסרת {name}',
 

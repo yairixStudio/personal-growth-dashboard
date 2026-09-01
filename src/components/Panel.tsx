@@ -10,6 +10,9 @@ interface PanelProps {
   onSelect?: () => void;
   onAdd?: () => void;
   addLabel?: string;
+  /** Set while something from the OS is hovering over this panel. */
+  isDropTarget?: boolean;
+  dropProps?: Record<string, unknown>;
   children: ReactNode;
 }
 
@@ -21,15 +24,22 @@ export function Panel({
   onSelect,
   onAdd,
   addLabel,
+  isDropTarget = false,
+  dropProps,
   children,
 }: PanelProps) {
   return (
     <section
       aria-label={title}
       onClick={onSelect}
+      {...dropProps}
       className={[
         'rounded-xl bg-white p-5 transition-all duration-500 dark:bg-gray-800',
-        isSpotlit ? 'shadow-[0_0_0_2px_rgb(59_130_246_/_0.4),0_10px_30px_-10px_rgb(59_130_246_/_0.5)]' : 'shadow-sm',
+        isDropTarget
+          ? 'shadow-[0_0_0_2px_rgb(59_130_246_/_0.7)] ring-4 ring-blue-500/15'
+          : isSpotlit
+            ? 'shadow-[0_0_0_2px_rgb(59_130_246_/_0.4),0_10px_30px_-10px_rgb(59_130_246_/_0.5)]'
+            : 'shadow-sm',
         isDimmed ? 'pointer-events-none opacity-30 blur-[1px]' : 'opacity-100',
         onSelect ? 'cursor-pointer' : '',
       ].join(' ')}
