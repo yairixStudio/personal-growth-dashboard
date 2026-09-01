@@ -5,20 +5,34 @@
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Colours come from Tailwind's class-based dark mode, not from :root — the old
+   hard-coded light-on-dark values here leaked into light mode. */
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-} 
+}
+
+/* The window itself, so the frame does not flash white before React mounts. */
+html {
+  background-color: theme('colors.gray.50');
+}
+
+html.dark {
+  background-color: theme('colors.gray.900');
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

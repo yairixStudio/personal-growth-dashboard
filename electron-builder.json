@@ -1,19 +1,13 @@
 {
-  "appId": "com.your-app-name",
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.yairix.personal-growth-dashboard",
+  "productName": "Personal Growth Dashboard",
   "directories": {
-    "output": "dist"
+    "output": "release",
+    "buildResources": "build-resources"
   },
-  "files": [
-    "build/**/*",
-    "node_modules/**/*"
-  ],
-  "win": {
-    "target": "nsis"
-  },
-  "mac": {
-    "target": "dmg"
-  },
-  "linux": {
-    "target": "AppImage"
-  }
-} 
+  "files": ["dist/**/*", "dist-electron/**/*", "package.json"],
+  "win": { "target": ["nsis"] },
+  "mac": { "target": ["dmg"], "category": "public.app-category.productivity" },
+  "linux": { "target": ["AppImage"], "category": "Utility" }
+}

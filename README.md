@@ -2,7 +2,7 @@
 
 A desktop dashboard for the things you want to keep in front of you — goals, values, strengths, gratitude, affirmations, quotes, a vision board and a video shelf, organised into workspaces you can switch between.
 
-Built with React + TypeScript + Vite, wrapped in Electron. Everything is stored locally on your machine.
+React + TypeScript + Vite in the renderer, Electron around it. Everything stays on your machine.
 
 ## Panels
 
@@ -14,70 +14,67 @@ Built with React + TypeScript + Vite, wrapped in Electron. Everything is stored 
 | **Gratitude** | What's worth noticing |
 | **Affirmations** | Short lines you want to repeat |
 | **Inspirational Quotes** | Words from other people |
-| **Vision Board** | Images |
+| **Vision Board** | Images you pick, copied into the app |
 | **Inspiring Videos** | YouTube links, embedded and playable in place |
 
-Panels can be reordered by drag and drop. Light and dark mode included. Multiple **workspaces** let you keep separate sets — e.g. "Main" and "Personal Projects".
+Items reorder by drag and drop, and can be dragged **between** list panels. Workspaces reorder the same way.
+
+**Focus mode** spotlights one panel at a time and dims the rest, cycling on a timer you control. Click a panel to pin it, or press <kbd>Esc</kbd> to leave.
+
+**Brainwave player** generates binaural tones at delta / theta / alpha / beta / gamma frequencies with an optional pink-noise bed. Everything is synthesised live with the Web Audio API — no audio files, no network. Headphones required for the effect to work.
 
 ## Getting started
 
 ```bash
 npm install
+npm run electron:dev     # Vite + Electron, with hot reload in the renderer
 ```
 
-> **Known issue.** `npm install` currently fails at the `postinstall` step with
-> `'electron-builder' is not recognized`. Three tools the scripts call —
-> `electron-builder`, `cross-env` and `concurrently` — are not declared in
-> `devDependencies`. The dependencies themselves do install (the failure comes
-> after), so `npm run dev` works today. Affected scripts: `postinstall`,
-> `electron:dev`, `electron:build`. To fix:
->
-> ```bash
-> npm i -D electron-builder cross-env concurrently
-> ```
-
-### Run in the browser (fastest)
+Other scripts:
 
 ```bash
-npm run dev          # http://127.0.0.1:5173
+npm run typecheck        # renderer and main process, both strict
+npm run build            # typecheck, bundle the renderer, compile the main process
+npm run electron:build   # packaged desktop app into release/
 ```
 
-In the browser the app uses `src/mock-store.ts`, which persists to `localStorage`. Vite aliases `./store` to it in `vite.config.ts`, so no Electron APIs are needed.
+`npm run dev` starts only the Vite server. On its own that's not much use — the renderer expects the `window.desktop` bridge that the Electron preload provides.
 
-### Run as a desktop app
+## Architecture
 
-```bash
-npm run electron:dev
+```
+electron/
+  main.cts        main process — owns the store, the image files and the window
+  preload.cts     contextBridge: the only path between renderer and Node
+src/
+  App.tsx         composition root: one DragDropContext, grid built from PANELS
+  panels.ts       panel registry — the single source of truth for the grid
+  types.ts        domain model
+  state/
+    reducer.ts    every state transition
+    migrate.ts    accepts any stored shape, returns a valid AppState
+    useAppState.ts  load once, then debounced write-behind
+  components/     one file per panel plus the shared Panel shell
 ```
 
-### Build
+Two things worth knowing:
 
-```bash
-npm run build            # web bundle into dist/
-npm run electron:build   # packaged desktop app
-```
+- **The grid is generated.** Adding a panel means adding an entry to `panels.ts`, not another copy-pasted block of JSX.
+- **Everything has an id.** Items, workspaces and videos all carry stable ids, which is what makes drag-and-drop and inline editing behave when the list changes underneath them.
+
+### Security
+
+The renderer runs with `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true` and `webSecurity: true`. It has no access to Node or to the filesystem; it can only call the four functions in `preload.cts`. External links open in the system browser, and in-app navigation away from the app's own origin is blocked.
+
+Vision-board images are copied into the app's user-data directory and served back through a custom `media://` protocol that resolves only bare filenames inside that one directory.
 
 ## Where your data lives
 
-- **Desktop (Electron):** `electron-store`, in your OS user-data directory — not in this repo.
-- **Browser (dev):** `localStorage` under the key `mock-store`.
+`electron-store`, in your OS user-data directory — `%APPDATA%/personal-growth-dashboard` on Windows, `~/Library/Application Support/personal-growth-dashboard` on macOS. Vision-board images sit alongside it in `vision-board/`.
 
-Nothing is sent anywhere. There is no server and no account. The defaults shipped in `store.ts` / `mock-store.ts` are generic placeholders, not anyone's real content.
+Nothing is sent anywhere. There is no server and no account. The sample content behind the wand button is generic placeholder text, not anyone's real content.
 
-## Structure
-
-```
-index.html                        Vite entry
-src/main.tsx                      React root
-src/personal-growth-dashboard.tsx the dashboard — all panels and editing
-src/components/MusicPlayer.tsx    brainwave player widget (UI only, no audio yet)
-src/store.ts                      electron-store adapter (desktop)
-src/mock-store.ts                 localStorage adapter (browser)
-src/electron/main.ts              Electron main process
-src/electron/preload.ts           preload bridge
-src/types/                        shared TypeScript types
-vite.config.ts                    Vite config, incl. the store alias
-```
+Data saved by version 1 is migrated automatically on first launch.
 
 ## Author
 
