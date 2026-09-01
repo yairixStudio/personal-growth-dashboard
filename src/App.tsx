@@ -14,6 +14,7 @@ import { WorkspaceSelector, WORKSPACE_DROPPABLE_ID } from './components/Workspac
 import { I18nProvider, useI18n } from './i18n/I18nProvider';
 import { PANELS, PANEL_COUNT, type PanelDef } from './panels';
 import { sampleLists, sampleVideos } from './sample-content';
+import { usePointerActivity } from './lib/usePointerActivity';
 import { useAppState } from './state/useAppState';
 import { useFullscreen } from './state/useFullscreen';
 import { LIST_IDS, type ListId, type VisionImage, type Workspace } from './types';
@@ -48,28 +49,62 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
   const [direction, setDirection] = useState<1 | -1>(1);
   const [pendingDelete, setPendingDelete] = useState<Workspace | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const spotlightRef = useRef(0);
+  /** How much of the current interval has already run, so a hold is a real
+   *  pause rather than a restart. */
+  const elapsedRef = useRef(0);
+
+  const pointerActive = usePointerActivity(isFocusMode);
+
+  // Anything that should stop the slideshow, in the order worth reporting.
+  const holdReason: 'manual' | 'pointer' | 'video' | null = isPaused
+    ? 'manual'
+    : isVideoPlaying
+      ? 'video'
+      : pointerActive
+        ? 'pointer'
+        : null;
+  const isHeld = holdReason !== null;
 
   const goTo = useCallback((index: number, how: 1 | -1 = 1) => {
     const next = ((index % PANEL_COUNT) + PANEL_COUNT) % PANEL_COUNT;
     setDirection(how);
     spotlightRef.current = next;
+    elapsedRef.current = 0;
     setSpotlight(next);
   }, []);
 
-  // Focus mode walks the panels on a timer until paused or exited.
+  // Focus mode walks the panels on a timer. A hold banks the elapsed time and
+  // the next run picks up from there, which keeps the dot animation honest.
+  const delayMs = state.settings.focusDelayMs;
   useEffect(() => {
-    if (!isFocusMode || isPaused) return;
-    const interval = window.setInterval(() => {
-      setDirection(1);
-      setSpotlight((current) => {
-        const next = (current + 1) % PANEL_COUNT;
-        spotlightRef.current = next;
-        return next;
-      });
-    }, state.settings.focusDelayMs);
-    return () => window.clearInterval(interval);
-  }, [isFocusMode, isPaused, state.settings.focusDelayMs]);
+    if (!isFocusMode || isHeld) return;
+
+    const startedAt = Date.now() - elapsedRef.current;
+    const timer = window.setTimeout(
+      () => {
+        elapsedRef.current = 0;
+        setDirection(1);
+        setSpotlight((current) => {
+          const next = (current + 1) % PANEL_COUNT;
+          spotlightRef.current = next;
+          return next;
+        });
+      },
+      Math.max(0, delayMs - elapsedRef.current),
+    );
+
+    return () => {
+      window.clearTimeout(timer);
+      elapsedRef.current = Math.min(delayMs, Date.now() - startedAt);
+    };
+  }, [isFocusMode, isHeld, delayMs, spotlight]);
+
+  // Leaving focus mode should not carry a half-spent interval back in.
+  useEffect(() => {
+    if (!isFocusMode) elapsedRef.current = 0;
+  }, [isFocusMode]);
 
   // F5 starts the run, Esc ends it — the same keys a slideshow uses.
   useEffect(() => {
@@ -190,6 +225,7 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
             videos={workspace.videos}
             onAdd={(title, url) => dispatch({ type: 'video/add', title, url })}
             onRemove={(id) => dispatch({ type: 'video/remove', id })}
+            onPlayingChange={setIsVideoPlaying}
           />
         );
       }
@@ -260,7 +296,8 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
           total={PANEL_COUNT}
           label={t(activePanel.titleKey)}
           direction={direction}
-          isPaused={isPaused}
+          isPaused={isHeld}
+          holdReason={holdReason}
           isFullscreen={isFullscreen}
           bleed={activePanel.kind === 'vision'}
           hasBackground={hasBackground}
@@ -280,6 +317,7 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
           onTogglePause={() => setIsPaused((value) => !value)}
           onToggleFullscreen={toggleFullscreen}
           onExit={() => setIsFocusMode(false)}
+          footer={<MusicPlayer variant="minimal" suspended={isVideoPlaying} />}
         >
           {renderPanel(activePanel, activePanel.kind === 'vision')}
         </FocusStage>
@@ -315,7 +353,7 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
             {PANELS.map((panel) => renderPanel(panel))}
           </div>
 
-          <MusicPlayer />
+          <MusicPlayer suspended={isVideoPlaying} />
         </div>
       )}
 

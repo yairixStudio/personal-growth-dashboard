@@ -49,6 +49,11 @@ const en = {
   'video.unplayable': 'Unplayable link',
   'video.remove': 'Remove "{title}"',
   'video.dropHint': 'Drop a YouTube link here',
+  'video.play': 'Play {title}',
+  'video.stop': 'Stop',
+  'focus.pausedPointer': 'Mouse moving · auto-advance paused',
+  'focus.pausedVideo': 'Video playing · auto-advance paused',
+  'music.open': 'Sound',
 
   'vision.add': 'Add images',
   'vision.dropHint': 'Drop images here from your computer',
@@ -166,6 +171,11 @@ const he: Record<StringKey, string> = {
   'video.unplayable': 'קישור שאי אפשר לנגן',
   'video.remove': 'הסרת "{title}"',
   'video.dropHint': 'גרור לכאן קישור ליוטיוב',
+  'video.play': 'נגן את {title}',
+  'video.stop': 'עצור',
+  'focus.pausedPointer': 'עכבר בתזוזה · החילוף מושהה',
+  'focus.pausedVideo': 'סרטון פועל · החילוף מושהה',
+  'music.open': 'צליל',
 
   'vision.add': 'הוספת תמונות',
   'vision.dropHint': 'גרור לכאן תמונות מהמחשב',

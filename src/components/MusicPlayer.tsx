@@ -71,13 +71,20 @@ interface Graph {
   noiseGain: GainNode;
 }
 
-export function MusicPlayer() {
+interface MusicPlayerProps {
+  /** `minimal` is the focus-mode form: a single faint button that expands. */
+  variant?: 'panel' | 'minimal';
+  /** Something else owns the speakers right now — hold playback. */
+  suspended?: boolean;
+}
+
+export function MusicPlayer({ variant = 'panel', suspended = false }: MusicPlayerProps = {}) {
   const { t } = useI18n();
   const [presetId, setPresetId] = useState<string>('alpha');
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.35);
   const [withNoise, setWithNoise] = useState(true);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(variant === 'minimal');
   const [failed, setFailed] = useState(false);
 
   const graphRef = useRef<Graph | null>(null);
@@ -189,10 +196,49 @@ export function MusicPlayer() {
 
   useEffect(() => teardown, [teardown]);
 
+  // A video takes over the speakers: stop, and resume afterwards only if this
+  // was actually playing beforehand.
+  const resumeAfterSuspend = useRef(false);
+  useEffect(() => {
+    if (suspended) {
+      setIsPlaying((playing) => {
+        if (playing) resumeAfterSuspend.current = true;
+        return false;
+      });
+    } else if (resumeAfterSuspend.current) {
+      resumeAfterSuspend.current = false;
+      setIsPlaying(true);
+    }
+  }, [suspended]);
+
+  const minimal = variant === 'minimal';
+
+  // Collapsed and minimal: just a faint dot in the corner. It never takes focus
+  // on its own, and it stays out of the way of whatever is on the stage.
+  if (minimal && isCollapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsCollapsed(false)}
+        aria-label={t('music.open')}
+        title={t('music.open')}
+        className={`fixed bottom-5 end-5 z-40 grid h-9 w-9 place-items-center rounded-full backdrop-blur transition-all duration-200 hover:bg-white hover:opacity-100 hover:shadow-md dark:hover:bg-gray-800 ${
+          isPlaying ? 'text-blue-500 opacity-60' : 'text-gray-400 opacity-25'
+        }`}
+      >
+        <Headphones className="h-4 w-4" aria-hidden />
+      </button>
+    );
+  }
+
   return (
     <aside
       aria-label={t('music.title')}
-      className="fixed bottom-5 end-5 z-40 w-72 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-800/95"
+      className={`fixed bottom-5 end-5 z-40 w-72 rounded-xl border p-3 backdrop-blur ${
+        minimal
+          ? 'border-gray-200/60 bg-white/80 shadow-md dark:border-gray-700/60 dark:bg-gray-800/80'
+          : 'border-gray-200 bg-white/95 shadow-lg dark:border-gray-700 dark:bg-gray-800/95'
+      }`}
     >
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-100">

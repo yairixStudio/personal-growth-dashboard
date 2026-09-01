@@ -6,7 +6,7 @@
  * mounted at a time, which also keeps a single Droppable of any given id alive.
  */
 import { useEffect, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Pause, Play, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2, MousePointer2, Pause, Play, Video, X } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 
 interface FocusStageProps {
@@ -16,6 +16,8 @@ interface FocusStageProps {
   /** Which way the last move went, so the panel slides in from that side. */
   direction: 1 | -1;
   isPaused: boolean;
+  /** Why the countdown is on hold, if it is. `manual` needs no banner. */
+  holdReason: 'manual' | 'pointer' | 'video' | null;
   isFullscreen: boolean;
   /** Let the panel use the whole stage instead of the centred card column. */
   bleed: boolean;
@@ -29,6 +31,8 @@ interface FocusStageProps {
   onToggleFullscreen: () => void;
   onExit: () => void;
   children: ReactNode;
+  /** Rendered inside the stage so the sound controls stay reachable here too. */
+  footer?: ReactNode;
 }
 
 const control =
@@ -40,6 +44,7 @@ export function FocusStage({
   label,
   direction,
   isPaused,
+  holdReason,
   isFullscreen,
   bleed,
   hasBackground,
@@ -51,6 +56,7 @@ export function FocusStage({
   onToggleFullscreen,
   onExit,
   children,
+  footer,
 }: FocusStageProps) {
   const { t, isRtl } = useI18n();
 
@@ -102,8 +108,25 @@ export function FocusStage({
       }`}
     >
       <div className="flex items-center justify-between gap-3 p-4">
-        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-          {label} · {index + 1}/{total}
+        <span className="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+          <span>
+            {label} · {index + 1}/{total}
+          </span>
+
+          {(holdReason === 'pointer' || holdReason === 'video') && (
+            <span
+              role="status"
+              className="flex items-center gap-1.5 rounded-full bg-gray-900/70 px-2.5 py-1 text-xs font-normal text-white backdrop-blur dark:bg-white/15"
+              style={{ animation: 'hold-badge-in 180ms ease-out' }}
+            >
+              {holdReason === 'pointer' ? (
+                <MousePointer2 className="h-3 w-3" aria-hidden />
+              ) : (
+                <Video className="h-3 w-3" aria-hidden />
+              )}
+              {holdReason === 'pointer' ? t('focus.pausedPointer') : t('focus.pausedVideo')}
+            </span>
+          )}
         </span>
 
         <div className="flex items-center gap-2">
@@ -159,6 +182,8 @@ export function FocusStage({
         {edgeButton('end', onNext, t('focus.next'), true)}
       </div>
 
+      {footer}
+
       {/* Progress lives in the dots: the active one fills over the interval. */}
       <div className="flex items-center justify-center gap-2 pb-5 pt-2">
         {Array.from({ length: total }, (_, dot) => {
@@ -179,16 +204,17 @@ export function FocusStage({
                     : 'w-1.5 bg-gray-300 group-hover:bg-gray-400 dark:bg-gray-600 dark:group-hover:bg-gray-500'
                 }`}
               >
-                {active &&
-                  (isPaused ? (
-                    <span className="block h-full w-full rounded-full bg-blue-500/70" />
-                  ) : (
-                    <span
-                      key={`${index}-${delayMs}`}
-                      className="block h-full rounded-full bg-blue-500"
-                      style={{ animation: `dot-fill ${delayMs}ms linear forwards` }}
-                    />
-                  ))}
+                {active && (
+                  <span
+                    key={`${index}-${delayMs}`}
+                    className="block h-full rounded-full bg-blue-500"
+                    style={{
+                      animation: `dot-fill ${delayMs}ms linear forwards`,
+                      // Paused in place, so the bar resumes where it stopped.
+                      animationPlayState: isPaused ? 'paused' : 'running',
+                    }}
+                  />
+                )}
               </span>
             </button>
           );

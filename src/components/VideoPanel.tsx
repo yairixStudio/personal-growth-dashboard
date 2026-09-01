@@ -1,7 +1,11 @@
 /** YouTube shelf. Only ids that match the embed pattern are ever loaded, so a
- *  pasted non-YouTube URL is reported rather than dropped into an iframe. */
+ *  pasted non-YouTube URL is reported rather than dropped into an iframe.
+ *
+ *  The iframe is mounted only after an explicit play. An embedded player gives
+ *  no reliable playback signal back, so making the start explicit is what lets
+ *  focus mode know to hold still — and it keeps panels quiet until asked. */
 import { useCallback, useEffect, useState } from 'react';
-import { Trash2, Video as VideoIcon } from 'lucide-react';
+import { Play, Square, Trash2, Video as VideoIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 import { hasText, useDropZone } from '../lib/useDropZone';
@@ -24,6 +28,8 @@ interface VideoPanelProps {
   onSelect?: () => void;
   onAdd: (title: string, url: string) => void;
   onRemove: (id: string) => void;
+  /** Fires whenever playback starts or stops, so focus mode can hold still. */
+  onPlayingChange?: (playing: boolean) => void;
 }
 
 export function VideoPanel({
@@ -35,6 +41,7 @@ export function VideoPanel({
   onSelect,
   onAdd,
   onRemove,
+  onPlayingChange,
 }: VideoPanelProps) {
   const { t } = useI18n();
   const [isAdding, setIsAdding] = useState(false);
@@ -42,6 +49,20 @@ export function VideoPanel({
   const [draftUrl, setDraftUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(videos[0]?.id ?? null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // A dropped link opens the form pre-filled rather than inventing a title.
+  const handleDrop = useCallback(
+    (data: DataTransfer) => {
+      const url = (data.getData('text/uri-list') || data.getData('text/plain')).trim();
+      if (!url) return;
+      setDraftUrl(url);
+      setError(youtubeId(url) ? null : t('video.notYouTube'));
+      setIsAdding(true);
+    },
+    [t],
+  );
+  const { isOver, dropProps } = useDropZone(handleDrop, hasText);
 
   // Keep the selection valid when videos are added or removed.
   useEffect(() => {
@@ -52,18 +73,21 @@ export function VideoPanel({
     }
   }, [videos, selectedId]);
 
-  const selected = videos.find((video) => video.id === selectedId) ?? null;
-  const selectedEmbedId = selected ? youtubeId(selected.url) : null;
+  useEffect(() => {
+    onPlayingChange?.(isPlaying);
+  }, [isPlaying, onPlayingChange]);
 
-  // A dropped link opens the form pre-filled rather than inventing a title.
-  const handleDrop = useCallback((data: DataTransfer) => {
-    const url = (data.getData('text/uri-list') || data.getData('text/plain')).trim();
-    if (!url) return;
-    setDraftUrl(url);
-    setError(youtubeId(url) ? null : t('video.notYouTube'));
-    setIsAdding(true);
-  }, [t]);
-  const { isOver, dropProps } = useDropZone(handleDrop, hasText);
+  // In focus mode only one panel is mounted, so unmounting is how leaving the
+  // video panel releases the hold on auto-advance.
+  useEffect(() => () => onPlayingChange?.(false), [onPlayingChange]);
+
+  const selected = videos.find((video) => video.id === selectedId) ?? null;
+  const embedId = selected ? youtubeId(selected.url) : null;
+
+  const pick = (id: string) => {
+    setSelectedId(id);
+    setIsPlaying(false);
+  };
 
   const submit = () => {
     const name = draftTitle.trim();
@@ -140,23 +164,55 @@ export function VideoPanel({
         <p className="py-2 text-sm text-gray-400 dark:text-gray-500">{isOver ? t('video.dropHint') : t('video.empty')}</p>
       ) : (
         <div className="space-y-3" onClick={(event) => event.stopPropagation()}>
-          <div className="aspect-video w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
-            {selectedEmbedId ? (
-              <iframe
-                key={selectedEmbedId}
-                src={`https://www.youtube.com/embed/${selectedEmbedId}`}
-                title={selected?.title ?? 'Video'}
-                className="h-full w-full"
-                allowFullScreen
-                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              />
-            ) : (
+          <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-900">
+            {!embedId ? (
               <div className="flex h-full items-center justify-center text-sm text-gray-400">
                 <VideoIcon className="me-2 h-4 w-4" aria-hidden />
                 {t('video.unplayable')}
               </div>
+            ) : isPlaying ? (
+              <iframe
+                key={embedId}
+                src={`https://www.youtube.com/embed/${embedId}?autoplay=1&rel=0`}
+                title={selected?.title ?? 'Video'}
+                className="h-full w-full"
+                allowFullScreen
+                allow="autoplay; accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsPlaying(true)}
+                aria-label={t('video.play', { title: selected?.title ?? '' })}
+                className="group relative h-full w-full"
+              >
+                <img
+                  src={`https://img.youtube.com/vi/${embedId}/hqdefault.jpg`}
+                  alt=""
+                  className="h-full w-full object-cover opacity-85 transition-opacity group-hover:opacity-100"
+                  onError={(event) => {
+                    event.currentTarget.style.visibility = 'hidden';
+                  }}
+                />
+                <span className="absolute inset-0 grid place-items-center">
+                  <span className="grid h-14 w-14 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition-transform group-hover:scale-110">
+                    <Play className="ms-1 h-6 w-6" aria-hidden />
+                  </span>
+                </span>
+              </button>
             )}
           </div>
+
+          {isPlaying && (
+            <button
+              type="button"
+              onClick={() => setIsPlaying(false)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              <Square className="h-3 w-3" aria-hidden />
+              {t('video.stop')}
+            </button>
+          )}
 
           <ul className="space-y-1">
             {videos.map((video) => (
@@ -168,7 +224,7 @@ export function VideoPanel({
               >
                 <button
                   type="button"
-                  onClick={() => setSelectedId(video.id)}
+                  onClick={() => pick(video.id)}
                   className="min-w-0 flex-1 truncate px-2 py-1.5 text-start text-sm text-gray-800 dark:text-gray-200"
                 >
                   {video.title}

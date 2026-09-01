@@ -28,6 +28,18 @@ html.dark {
   background-color: theme('colors.gray.900');
 }
 
+/* The badge that explains why the countdown is on hold slips in, not blinks. */
+@keyframes hold-badge-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Focus mode: the active navigation dot fills over the interval, so the moment
    of the next change is readable at a glance without any extra chrome. */
 @keyframes dot-fill {
