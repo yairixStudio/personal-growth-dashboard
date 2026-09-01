@@ -1,5 +1,6 @@
 /** Replaces `window.confirm`, which blocks the whole renderer and cannot be styled. */
 import { useEffect, useRef } from 'react';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface ConfirmDialogProps {
   title: string;
@@ -9,7 +10,8 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-export function ConfirmDialog({ title, message, confirmLabel = 'Delete', onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+  const { t } = useI18n();
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export function ConfirmDialog({ title, message, confirmLabel = 'Delete', onConfi
             onClick={onCancel}
             className="rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             ref={confirmRef}
@@ -48,7 +50,7 @@ export function ConfirmDialog({ title, message, confirmLabel = 'Delete', onConfi
             onClick={onConfirm}
             className="rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600"
           >
-            {confirmLabel}
+            {confirmLabel ?? t('common.delete')}
           </button>
         </div>
       </div>

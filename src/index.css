@@ -28,6 +28,39 @@ html.dark {
   background-color: theme('colors.gray.900');
 }
 
+/* Focus mode: the hairline countdown drains toward the reading direction. */
+@keyframes focus-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Panels slide in from the side they came from — short, so it never delays. */
+@keyframes focus-slide-forward {
+  from {
+    opacity: 0;
+    transform: translateX(2.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes focus-slide-back {
+  from {
+    opacity: 0;
+    transform: translateX(-2.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

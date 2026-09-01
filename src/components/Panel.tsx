@@ -46,8 +46,8 @@ export function Panel({
               event.stopPropagation();
               onAdd();
             }}
-            aria-label={addLabel ?? `Add to ${title}`}
-            title={addLabel ?? `Add to ${title}`}
+            aria-label={addLabel ?? title}
+            title={addLabel ?? title}
             className="rounded-full p-1.5 text-blue-500 transition-colors hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:text-blue-400 dark:hover:bg-blue-900/40"
           >
             <Plus className="h-5 w-5" aria-hidden />

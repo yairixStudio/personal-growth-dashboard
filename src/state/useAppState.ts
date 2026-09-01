@@ -1,6 +1,7 @@
 /** Loads state from the main process once, then persists every change. */
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { AppState, Workspace } from '../types';
+import { DIRECTION } from '../i18n/strings';
 import { migrate } from './migrate';
 import { createDefaultState, reducer, type Action } from './reducer';
 
@@ -69,6 +70,14 @@ export function useAppState(): AppStateHandle {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', state.settings.darkMode);
   }, [state.settings.darkMode]);
+
+  // `dir` drives every logical CSS property in the layout, so RTL falls out of
+  // this one line rather than a parallel stylesheet.
+  useEffect(() => {
+    const { language } = state.settings;
+    document.documentElement.lang = language;
+    document.documentElement.dir = DIRECTION[language];
+  }, [state.settings.language]);
 
   const workspace =
     state.workspaces.find((entry) => entry.id === state.currentWorkspaceId) ?? state.workspaces[0];

@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { ImagePlus, Trash2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
 import type { VisionImage } from '../types';
 import { Panel } from './Panel';
 
@@ -30,6 +31,7 @@ export function VisionBoardPanel({
   onAdd,
   onRemove,
 }: VisionBoardPanelProps) {
+  const { t } = useI18n();
   const [lightbox, setLightbox] = useState<VisionImage | null>(null);
 
   return (
@@ -41,7 +43,7 @@ export function VisionBoardPanel({
         isSpotlit={isSpotlit}
         onSelect={onSelect}
         onAdd={onAdd}
-        addLabel="Add images"
+        addLabel={t('vision.add')}
       >
         <div className="grid grid-cols-2 gap-2" onClick={(event) => event.stopPropagation()}>
           {images.map((image) => (
@@ -50,7 +52,7 @@ export function VisionBoardPanel({
                 type="button"
                 onClick={() => setLightbox(image)}
                 className="h-full w-full"
-                aria-label={`View ${image.name}`}
+                aria-label={t('vision.view', { name: image.name })}
               >
                 <img
                   src={mediaUrl(image)}
@@ -62,8 +64,8 @@ export function VisionBoardPanel({
               <button
                 type="button"
                 onClick={() => onRemove(image)}
-                aria-label={`Remove ${image.name}`}
-                className="absolute right-1 top-1 rounded-full bg-white/90 p-1.5 text-red-500 opacity-0 shadow transition-opacity group-hover:opacity-100 focus-visible:opacity-100 dark:bg-gray-900/90"
+                aria-label={t('vision.remove', { name: image.name })}
+                className="absolute end-1 top-1 rounded-full bg-white/90 p-1.5 text-red-500 opacity-0 shadow transition-opacity group-hover:opacity-100 focus-visible:opacity-100 dark:bg-gray-900/90"
               >
                 <Trash2 className="h-4 w-4" aria-hidden />
               </button>
@@ -76,7 +78,7 @@ export function VisionBoardPanel({
             className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 text-gray-400 transition-colors hover:border-blue-400 hover:text-blue-500 dark:border-gray-600 dark:text-gray-500"
           >
             <ImagePlus className="h-7 w-7" aria-hidden />
-            <span className="text-xs">Add images</span>
+            <span className="text-xs">{t('vision.add')}</span>
           </button>
         </div>
       </Panel>
@@ -92,8 +94,8 @@ export function VisionBoardPanel({
           <button
             type="button"
             onClick={() => setLightbox(null)}
-            aria-label="Close"
-            className="absolute right-6 top-6 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
+            aria-label={t('common.close')}
+            className="absolute end-6 top-6 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
           >
             <X className="h-6 w-6" aria-hidden />
           </button>

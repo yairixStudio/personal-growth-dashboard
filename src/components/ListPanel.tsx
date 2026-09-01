@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { GripVertical, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
 import type { Item, ListId } from '../types';
 import { Panel } from './Panel';
 
@@ -36,6 +37,7 @@ export function ListPanel({
   onUpdate,
   onRemove,
 }: ListPanelProps) {
+  const { t } = useI18n();
   const [isAdding, setIsAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export function ListPanel({
       isSpotlit={isSpotlit}
       onSelect={onSelect}
       onAdd={() => setIsAdding(true)}
-      addLabel={`Add to ${title}`}
+      addLabel={t('list.addTo', { title })}
     >
       {isAdding && (
         <div className="mb-3 flex gap-2" onClick={(event) => event.stopPropagation()}>
@@ -93,7 +95,7 @@ export function ListPanel({
             }`}
           >
             {items.length === 0 && !dropSnapshot.isDraggingOver && (
-              <li className="px-1 py-2 text-sm text-gray-400 dark:text-gray-500">Nothing here yet.</li>
+              <li className="px-1 py-2 text-sm text-gray-400 dark:text-gray-500">{t('list.empty')}</li>
             )}
 
             {items.map((item, index) => (
@@ -114,7 +116,7 @@ export function ListPanel({
                     >
                       <span
                         {...draggable.dragHandleProps}
-                        aria-label="Reorder"
+                        aria-label={t('list.reorder')}
                         className="cursor-grab p-1 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-gray-600"
                       >
                         <GripVertical className="h-4 w-4" aria-hidden />
@@ -142,8 +144,8 @@ export function ListPanel({
                         <button
                           type="button"
                           onClick={() => setEditingId(item.id)}
-                          title="Click to edit"
-                          className="min-w-0 flex-1 break-words px-1 py-0.5 text-left text-sm text-gray-800 dark:text-gray-200"
+                          title={t('list.editHint')}
+                          className="min-w-0 flex-1 break-words px-1 py-0.5 text-start text-sm text-gray-800 dark:text-gray-200"
                         >
                           {item.text}
                         </button>
@@ -152,7 +154,7 @@ export function ListPanel({
                       <button
                         type="button"
                         onClick={() => onRemove(item.id)}
-                        aria-label={`Delete "${item.text}"`}
+                        aria-label={t('list.delete', { text: item.text })}
                         className="rounded-full p-1 text-red-500 opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-red-900/40"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden />

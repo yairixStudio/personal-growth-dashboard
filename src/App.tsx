@@ -1,14 +1,16 @@
 /** Composition root: one DragDropContext, one grid generated from PANELS. */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { FocusStage } from './components/FocusStage';
 import { ListPanel } from './components/ListPanel';
 import { MusicPlayer } from './components/MusicPlayer';
+import { SettingsDialog } from './components/SettingsDialog';
 import { Toolbar } from './components/Toolbar';
 import { VideoPanel } from './components/VideoPanel';
 import { VisionBoardPanel } from './components/VisionBoardPanel';
 import { WorkspaceSelector, WORKSPACE_DROPPABLE_ID } from './components/WorkspaceSelector';
+import { I18nProvider, useI18n } from './i18n/I18nProvider';
 import { PANELS, PANEL_COUNT, type PanelDef } from './panels';
 import { sampleLists } from './sample-content';
 import { useAppState } from './state/useAppState';
@@ -23,22 +25,47 @@ const listIdFromDroppable = (droppableId: string): ListId | null => {
 
 export default function App() {
   const { state, workspace, dispatch, loaded } = useAppState();
+
+  // The provider has to sit above everything that calls useI18n, including the
+  // loading screen, so the language is in place from the first paint.
+  return (
+    <I18nProvider lang={state.settings.language}>
+      <Dashboard state={state} workspace={workspace} dispatch={dispatch} loaded={loaded} />
+    </I18nProvider>
+  );
+}
+
+type DashboardProps = ReturnType<typeof useAppState>;
+
+function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
+  const { t } = useI18n();
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
 
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [spotlight, setSpotlight] = useState(0);
+  const [direction, setDirection] = useState<1 | -1>(1);
   const [pendingDelete, setPendingDelete] = useState<Workspace | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const spotlightRef = useRef(0);
 
-  const goTo = useCallback((index: number) => {
-    setSpotlight(((index % PANEL_COUNT) + PANEL_COUNT) % PANEL_COUNT);
+  const goTo = useCallback((index: number, how: 1 | -1 = 1) => {
+    const next = ((index % PANEL_COUNT) + PANEL_COUNT) % PANEL_COUNT;
+    setDirection(how);
+    spotlightRef.current = next;
+    setSpotlight(next);
   }, []);
 
   // Focus mode walks the panels on a timer until paused or exited.
   useEffect(() => {
     if (!isFocusMode || isPaused) return;
     const interval = window.setInterval(() => {
-      setSpotlight((current) => (current + 1) % PANEL_COUNT);
+      setDirection(1);
+      setSpotlight((current) => {
+        const next = (current + 1) % PANEL_COUNT;
+        spotlightRef.current = next;
+        return next;
+      });
     }, state.settings.focusDelayMs);
     return () => window.clearInterval(interval);
   }, [isFocusMode, isPaused, state.settings.focusDelayMs]);
@@ -108,7 +135,7 @@ export default function App() {
   const renderPanel = useCallback(
     (panel: PanelDef) => {
       const shared = {
-        title: panel.title,
+        title: t(panel.titleKey),
         icon: panel.icon,
         isDimmed: false,
         isSpotlit: false,
@@ -121,7 +148,7 @@ export default function App() {
             key={panel.key}
             {...shared}
             list={panel.list}
-            placeholder={panel.placeholder}
+            placeholder={t(panel.placeholderKey)}
             items={workspace.lists[panel.list]}
             onAdd={(text) => dispatch({ type: 'item/add', list: panel.list, text })}
             onUpdate={(id, text) => dispatch({ type: 'item/update', list: panel.list, id, text })}
@@ -152,13 +179,23 @@ export default function App() {
         />
       );
     },
-    [addVisionImages, dispatch, removeVisionImage, workspace],
+    [addVisionImages, dispatch, removeVisionImage, t, workspace],
+  );
+
+  const settingsDialog = showSettings && (
+    <SettingsDialog
+      settings={state.settings}
+      onLanguageChange={(value) => dispatch({ type: 'settings/language', value })}
+      onDarkModeChange={(value) => dispatch({ type: 'settings/darkMode', value })}
+      onFocusDelayChange={(value) => dispatch({ type: 'settings/focusDelay', value })}
+      onClose={() => setShowSettings(false)}
+    />
   );
 
   if (!loaded) {
     return (
       <div className="grid min-h-screen place-items-center bg-gray-50 text-sm text-gray-400 dark:bg-gray-900">
-        Loading your workspace…
+        {t('app.loading')}
       </div>
     );
   }
@@ -171,20 +208,21 @@ export default function App() {
         <FocusStage
           index={spotlight}
           total={PANEL_COUNT}
-          label={activePanel.title}
+          label={t(activePanel.titleKey)}
+          direction={direction}
           isPaused={isPaused}
           isFullscreen={isFullscreen}
           delayMs={state.settings.focusDelayMs}
           onPrev={() => {
-            goTo(spotlight - 1);
+            goTo(spotlightRef.current - 1, -1);
             setIsPaused(true);
           }}
           onNext={() => {
-            goTo(spotlight + 1);
+            goTo(spotlightRef.current + 1, 1);
             setIsPaused(true);
           }}
           onGo={(index) => {
-            goTo(index);
+            goTo(index, index >= spotlightRef.current ? 1 : -1);
             setIsPaused(true);
           }}
           onTogglePause={() => setIsPaused((value) => !value)}
@@ -213,8 +251,11 @@ export default function App() {
               setIsPaused(false);
             }}
             onToggleFullscreen={toggleFullscreen}
-            onFillSample={() => dispatch({ type: 'workspace/fill', content: { lists: sampleLists() } })}
+            onFillSample={() =>
+              dispatch({ type: 'workspace/fill', content: { lists: sampleLists(state.settings.language) } })
+            }
             onToggleTheme={() => dispatch({ type: 'settings/darkMode', value: !state.settings.darkMode })}
+            onOpenSettings={() => setShowSettings(true)}
           />
 
           <header className="mb-8 mt-3 text-center">
@@ -231,10 +272,12 @@ export default function App() {
         </div>
       )}
 
+      {settingsDialog}
+
       {pendingDelete && (
         <ConfirmDialog
-          title={`Delete "${pendingDelete.name}"?`}
-          message="Its goals, values, videos and images will be removed. This cannot be undone."
+          title={t('workspace.confirmTitle', { name: pendingDelete.name })}
+          message={t('workspace.confirmBody')}
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => {
             dispatch({ type: 'workspace/delete', id: pendingDelete.id });

@@ -1,0 +1,237 @@
+/** UI strings. Adding a language means adding one entry to `STRINGS`. */
+
+export const LANGUAGES = ['en', 'he'] as const;
+export type Language = (typeof LANGUAGES)[number];
+
+export const LANGUAGE_NAMES: Record<Language, string> = {
+  en: 'English',
+  he: 'עברית',
+};
+
+export const DIRECTION: Record<Language, 'ltr' | 'rtl'> = {
+  en: 'ltr',
+  he: 'rtl',
+};
+
+const en = {
+  'app.loading': 'Loading your workspace…',
+
+  'panel.goals': 'Goals',
+  'panel.values': 'Values',
+  'panel.strengths': 'Strengths',
+  'panel.gratitude': 'Gratitude',
+  'panel.videos': 'Inspiring Videos',
+  'panel.affirmations': 'Affirmations',
+  'panel.vision': 'Vision Board',
+  'panel.quotes': 'Inspirational Quotes',
+
+  'placeholder.goals': 'What are you working toward?',
+  'placeholder.values': 'What do you want to stay true to?',
+  'placeholder.strengths': 'What are you good at?',
+  'placeholder.gratitude': "What's worth noticing?",
+  'placeholder.affirmations': 'A line worth repeating',
+  'placeholder.quotes': 'A quote that stuck with you',
+
+  'list.empty': 'Nothing here yet.',
+  'list.addTo': 'Add to {title}',
+  'list.editHint': 'Click to edit',
+  'list.reorder': 'Reorder',
+  'list.delete': 'Delete "{text}"',
+
+  'video.empty': 'No videos yet.',
+  'video.add': 'Add a video',
+  'video.title': 'Title',
+  'video.url': 'https://youtube.com/watch?v=...',
+  'video.submit': 'Add video',
+  'video.needBoth': 'Both a title and a URL are needed.',
+  'video.notYouTube': "That doesn't look like a YouTube link.",
+  'video.unplayable': 'Unplayable link',
+  'video.remove': 'Remove "{title}"',
+
+  'vision.add': 'Add images',
+  'vision.view': 'View {name}',
+  'vision.remove': 'Remove {name}',
+
+  'workspace.title': 'Workspaces',
+  'workspace.new': 'New workspace',
+  'workspace.namePlaceholder': 'Workspace name',
+  'workspace.add': 'Add',
+  'workspace.rename': 'Rename {name}',
+  'workspace.delete': 'Delete {name}',
+  'workspace.reorder': 'Reorder workspace',
+  'workspace.confirmTitle': 'Delete "{name}"?',
+  'workspace.confirmBody': 'Its goals, values, videos and images will be removed. This cannot be undone.',
+
+  'common.cancel': 'Cancel',
+  'common.delete': 'Delete',
+  'common.close': 'Close',
+  'common.done': 'Done',
+
+  'toolbar.focus': 'Focus mode — one panel at a time, centred on screen (F5 to start, Esc to exit)',
+  'toolbar.focusLabel': 'Enter focus mode',
+  'toolbar.fullscreenOn': 'Fullscreen (F11)',
+  'toolbar.fullscreenOff': 'Leave fullscreen (F11)',
+  'toolbar.sample': 'Fill this workspace with sample content',
+  'toolbar.toLight': 'Switch to light mode',
+  'toolbar.toDark': 'Switch to dark mode',
+  'toolbar.settings': 'Settings',
+
+  'focus.prev': 'Previous (←)',
+  'focus.next': 'Next (→)',
+  'focus.pause': 'Pause (Space)',
+  'focus.resume': 'Resume (Space)',
+  'focus.exit': 'Exit focus mode (Esc)',
+  'focus.delay': 'Seconds per panel',
+  'focus.goTo': 'Go to panel {n}',
+  'focus.remaining': '{n}s',
+
+  'settings.title': 'Settings',
+  'settings.language': 'Language',
+  'settings.languageHint': 'Changes the interface text and its direction.',
+  'settings.appearance': 'Appearance',
+  'settings.light': 'Light',
+  'settings.dark': 'Dark',
+  'settings.focus': 'Focus mode',
+  'settings.focusDelay': 'Seconds on each panel',
+  'settings.data': 'Your data',
+  'settings.dataHint': 'Everything is stored on this device only. Nothing is sent anywhere.',
+
+  'music.title': 'Brainwaves',
+  'music.expand': 'Expand player',
+  'music.collapse': 'Collapse player',
+  'music.play': 'Play',
+  'music.pause': 'Pause',
+  'music.volume': 'Volume',
+  'music.noise': 'Pink noise bed',
+  'music.headphones': 'Use headphones — the effect comes from the difference between your ears.',
+  'music.failed': 'Audio could not start on this device.',
+  'music.beat': '{description} · {hz} Hz beat',
+  'music.delta': 'Delta',
+  'music.theta': 'Theta',
+  'music.alpha': 'Alpha',
+  'music.beta': 'Beta',
+  'music.gamma': 'Gamma',
+  'music.deltaDesc': 'Deep rest',
+  'music.thetaDesc': 'Drifting, creative',
+  'music.alphaDesc': 'Calm focus',
+  'music.betaDesc': 'Alert, working',
+  'music.gammaDesc': 'Sharp, engaged',
+};
+
+export type StringKey = keyof typeof en;
+
+const he: Record<StringKey, string> = {
+  'app.loading': 'טוען את המרחב שלך…',
+
+  'panel.goals': 'מטרות',
+  'panel.values': 'ערכים',
+  'panel.strengths': 'חוזקות',
+  'panel.gratitude': 'הכרת תודה',
+  'panel.videos': 'סרטונים מעוררי השראה',
+  'panel.affirmations': 'אמירות מחזקות',
+  'panel.vision': 'לוח חזון',
+  'panel.quotes': 'ציטוטים',
+
+  'placeholder.goals': 'לאן אתה חותר?',
+  'placeholder.values': 'למה אתה רוצה להישאר נאמן?',
+  'placeholder.strengths': 'במה אתה טוב?',
+  'placeholder.gratitude': 'על מה שווה לשים לב?',
+  'placeholder.affirmations': 'משפט ששווה לחזור עליו',
+  'placeholder.quotes': 'ציטוט שנשאר איתך',
+
+  'list.empty': 'עדיין ריק כאן.',
+  'list.addTo': 'הוספה ל{title}',
+  'list.editHint': 'לחץ לעריכה',
+  'list.reorder': 'שינוי סדר',
+  'list.delete': 'מחיקת "{text}"',
+
+  'video.empty': 'אין עדיין סרטונים.',
+  'video.add': 'הוספת סרטון',
+  'video.title': 'כותרת',
+  'video.url': 'https://youtube.com/watch?v=...',
+  'video.submit': 'הוסף סרטון',
+  'video.needBoth': 'צריך גם כותרת וגם כתובת.',
+  'video.notYouTube': 'זה לא נראה כמו קישור ליוטיוב.',
+  'video.unplayable': 'קישור שאי אפשר לנגן',
+  'video.remove': 'הסרת "{title}"',
+
+  'vision.add': 'הוספת תמונות',
+  'vision.view': 'הצגת {name}',
+  'vision.remove': 'הסרת {name}',
+
+  'workspace.title': 'מרחבים',
+  'workspace.new': 'מרחב חדש',
+  'workspace.namePlaceholder': 'שם המרחב',
+  'workspace.add': 'הוסף',
+  'workspace.rename': 'שינוי שם {name}',
+  'workspace.delete': 'מחיקת {name}',
+  'workspace.reorder': 'שינוי סדר מרחבים',
+  'workspace.confirmTitle': 'למחוק את "{name}"?',
+  'workspace.confirmBody': 'המטרות, הערכים, הסרטונים והתמונות שבו יימחקו. אי אפשר לבטל.',
+
+  'common.cancel': 'ביטול',
+  'common.delete': 'מחיקה',
+  'common.close': 'סגירה',
+  'common.done': 'סיום',
+
+  'toolbar.focus': 'מצב התמקדות — פאנל אחד בכל פעם, במרכז המסך (F5 להתחלה, Esc ליציאה)',
+  'toolbar.focusLabel': 'כניסה למצב התמקדות',
+  'toolbar.fullscreenOn': 'מסך מלא (F11)',
+  'toolbar.fullscreenOff': 'יציאה ממסך מלא (F11)',
+  'toolbar.sample': 'מילוי המרחב בתוכן לדוגמה',
+  'toolbar.toLight': 'מעבר למצב בהיר',
+  'toolbar.toDark': 'מעבר למצב כהה',
+  'toolbar.settings': 'הגדרות',
+
+  'focus.prev': 'הקודם (←)',
+  'focus.next': 'הבא (→)',
+  'focus.pause': 'השהיה (רווח)',
+  'focus.resume': 'המשך (רווח)',
+  'focus.exit': 'יציאה ממצב התמקדות (Esc)',
+  'focus.delay': 'שניות לכל פאנל',
+  'focus.goTo': 'מעבר לפאנל {n}',
+  'focus.remaining': '{n} שנ׳',
+
+  'settings.title': 'הגדרות',
+  'settings.language': 'שפה',
+  'settings.languageHint': 'משנה את שפת הממשק ואת כיוון הפריסה.',
+  'settings.appearance': 'מראה',
+  'settings.light': 'בהיר',
+  'settings.dark': 'כהה',
+  'settings.focus': 'מצב התמקדות',
+  'settings.focusDelay': 'שניות על כל פאנל',
+  'settings.data': 'הנתונים שלך',
+  'settings.dataHint': 'הכול נשמר על המכשיר הזה בלבד. שום דבר לא נשלח לשום מקום.',
+
+  'music.title': 'גלי מוח',
+  'music.expand': 'הרחבת הנגן',
+  'music.collapse': 'כיווץ הנגן',
+  'music.play': 'נגן',
+  'music.pause': 'השהה',
+  'music.volume': 'עוצמה',
+  'music.noise': 'שכבת רעש ורוד',
+  'music.headphones': 'השתמש באוזניות — האפקט נוצר מההפרש בין האוזניים.',
+  'music.failed': 'לא הצלחנו להפעיל שמע במכשיר הזה.',
+  'music.beat': '{description} · פעימה של {hz} הרץ',
+  'music.delta': 'דלתא',
+  'music.theta': 'תטא',
+  'music.alpha': 'אלפא',
+  'music.beta': 'ביתא',
+  'music.gamma': 'גמא',
+  'music.deltaDesc': 'מנוחה עמוקה',
+  'music.thetaDesc': 'מרחף, יצירתי',
+  'music.alphaDesc': 'ריכוז רגוע',
+  'music.betaDesc': 'ערני, עובד',
+  'music.gammaDesc': 'חד, מעורב',
+};
+
+export const STRINGS: Record<Language, Record<StringKey, string>> = { en, he };
+
+export function isLanguage(value: unknown): value is Language {
+  return typeof value === 'string' && (LANGUAGES as readonly string[]).includes(value);
+}
+
+/** Picks the closest supported language for a browser/OS locale. */
+export function detectLanguage(locale: string | undefined): Language {
+  return locale?.toLowerCase().startsWith('he') ? 'he' : 'en';
+}

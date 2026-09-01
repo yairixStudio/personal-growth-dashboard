@@ -1,5 +1,6 @@
 /** All state transitions in one place. Every case returns a new state; the
  *  persistence layer just watches the result and writes it. */
+import type { Language } from '../i18n/strings';
 import { newId } from '../lib/id';
 import { emptyLists, type AppState, type ListId, type VideoItem, type VisionImage, type Workspace } from '../types';
 import { createDefaultState } from './migrate';
@@ -21,6 +22,7 @@ export type Action =
   | { type: 'vision/remove'; id: string }
   | { type: 'settings/darkMode'; value: boolean }
   | { type: 'settings/focusDelay'; value: number }
+  | { type: 'settings/language'; value: Language }
   | { type: 'workspace/fill'; content: Pick<Workspace, 'lists'> };
 
 function move<T>(list: T[], from: number, to: number): T[] {
@@ -194,6 +196,9 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'settings/focusDelay':
       return { ...state, settings: { ...state.settings, focusDelayMs: action.value } };
+
+    case 'settings/language':
+      return { ...state, settings: { ...state.settings, language: action.value } };
 
     case 'workspace/fill':
       return updateCurrent(state, (workspace) => ({ ...workspace, lists: action.content.lists }));

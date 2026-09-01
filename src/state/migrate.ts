@@ -6,6 +6,7 @@
  * why drag-and-drop had to key items by array index. v2 gives workspaces an
  * explicit order and every item an id.
  */
+import { detectLanguage, isLanguage } from '../i18n/strings';
 import { newId } from '../lib/id';
 import { emptyLists, LIST_IDS, type AppState, type Item, type VideoItem, type VisionImage, type Workspace } from '../types';
 
@@ -81,7 +82,11 @@ export function createDefaultState(): AppState {
     version: 2,
     workspaces: [workspace],
     currentWorkspaceId: workspace.id,
-    settings: { darkMode: false, focusDelayMs: DEFAULT_FOCUS_DELAY_MS },
+    settings: {
+      darkMode: false,
+      focusDelayMs: DEFAULT_FOCUS_DELAY_MS,
+      language: detectLanguage(navigator.language),
+    },
   };
 }
 
@@ -97,6 +102,8 @@ function migrateSettings(raw: Record<string, unknown>, legacyDarkMode: unknown):
   return {
     darkMode,
     focusDelayMs: Number.isFinite(delay) && delay >= 1000 && delay <= 20000 ? delay : DEFAULT_FOCUS_DELAY_MS,
+    // No stored language means this is a first run or a v1 file: follow the OS.
+    language: isLanguage(settings.language) ? settings.language : detectLanguage(navigator.language),
   };
 }
 

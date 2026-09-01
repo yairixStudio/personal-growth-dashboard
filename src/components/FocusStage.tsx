@@ -5,13 +5,16 @@
  * of the screen at a readable size — the point of the mode. Only one panel is
  * mounted at a time, which also keeps a single Droppable of any given id alive.
  */
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Pause, Play, X } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface FocusStageProps {
   index: number;
   total: number;
   label: string;
+  /** Which way the last move went, so the panel slides in from the right side. */
+  direction: 1 | -1;
   isPaused: boolean;
   isFullscreen: boolean;
   delayMs: number;
@@ -32,6 +35,7 @@ export function FocusStage({
   index,
   total,
   label,
+  direction,
   isPaused,
   isFullscreen,
   delayMs,
@@ -44,19 +48,22 @@ export function FocusStage({
   onDelayChange,
   children,
 }: FocusStageProps) {
+  const { t, isRtl } = useI18n();
+  const [remaining, setRemaining] = useState(delayMs);
+  const startedAt = useRef(Date.now());
+
   // Arrow keys step through panels; space pauses. Ignored while typing.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      const typing = target?.matches('input, textarea, [contenteditable="true"]');
-      if (typing) return;
+      if (target?.matches('input, textarea, [contenteditable="true"]')) return;
 
       if (event.key === 'ArrowRight') {
         event.preventDefault();
-        onNext();
+        (isRtl ? onPrev : onNext)();
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        onPrev();
+        (isRtl ? onNext : onPrev)();
       } else if (event.key === ' ') {
         event.preventDefault();
         onTogglePause();
@@ -64,13 +71,50 @@ export function FocusStage({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onNext, onPrev, onTogglePause]);
+  }, [isRtl, onNext, onPrev, onTogglePause]);
+
+  // A cheap ticker purely for the countdown text; the bar itself is pure CSS.
+  useEffect(() => {
+    startedAt.current = Date.now();
+    setRemaining(delayMs);
+    if (isPaused) return;
+    const tick = window.setInterval(() => {
+      setRemaining(Math.max(0, delayMs - (Date.now() - startedAt.current)));
+    }, 100);
+    return () => window.clearInterval(tick);
+  }, [index, delayMs, isPaused]);
+
+  const seconds = Math.max(1, Math.ceil(remaining / 1000));
+
+  // "Next" enters from the right in LTR and from the left in RTL.
+  const slide = (direction === 1) !== isRtl ? 'forward' : 'back';
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col bg-gradient-to-b from-gray-100 to-gray-200 dark:from-gray-900 dark:to-black">
+      {/* Hairline progress: the only always-visible hint of how long is left. */}
+      <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden" aria-hidden>
+        {!isPaused && (
+          <div
+            key={`${index}-${delayMs}`}
+            className="h-full w-full bg-blue-500/40"
+            style={{
+              transformOrigin: isRtl ? 'right center' : 'left center',
+              animation: `focus-countdown ${delayMs}ms linear forwards`,
+            }}
+          />
+        )}
+      </div>
+
       <div className="flex items-center justify-between gap-3 p-4">
-        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-          {label} · {index + 1}/{total}
+        <span className="flex items-baseline gap-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+          <span>
+            {label} · {index + 1}/{total}
+          </span>
+          {!isPaused && (
+            <span className="text-xs tabular-nums text-gray-400 opacity-60 dark:text-gray-500">
+              {t('focus.remaining', { n: seconds })}
+            </span>
+          )}
         </span>
 
         <div className="flex items-center gap-2">
@@ -82,7 +126,7 @@ export function FocusStage({
               step={500}
               value={delayMs}
               onChange={(event) => onDelayChange(Number(event.target.value))}
-              aria-label="Seconds per panel"
+              aria-label={t('focus.delay')}
               className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-gray-200 accent-blue-500 dark:bg-gray-600"
             />
             <span className="min-w-[3ch] text-xs tabular-nums text-gray-600 dark:text-gray-300">
@@ -90,7 +134,13 @@ export function FocusStage({
             </span>
           </div>
 
-          <button type="button" onClick={onTogglePause} className={control} aria-label={isPaused ? 'Resume' : 'Pause'} title={isPaused ? 'Resume (Space)' : 'Pause (Space)'}>
+          <button
+            type="button"
+            onClick={onTogglePause}
+            className={control}
+            aria-label={isPaused ? t('focus.resume') : t('focus.pause')}
+            title={isPaused ? t('focus.resume') : t('focus.pause')}
+          >
             {isPaused ? <Play className="h-4 w-4" aria-hidden /> : <Pause className="h-4 w-4" aria-hidden />}
           </button>
 
@@ -98,13 +148,13 @@ export function FocusStage({
             type="button"
             onClick={onToggleFullscreen}
             className={control}
-            aria-label={isFullscreen ? 'Leave fullscreen' : 'Enter fullscreen'}
-            title={isFullscreen ? 'Leave fullscreen (F11)' : 'Fullscreen (F11)'}
+            aria-label={isFullscreen ? t('toolbar.fullscreenOff') : t('toolbar.fullscreenOn')}
+            title={isFullscreen ? t('toolbar.fullscreenOff') : t('toolbar.fullscreenOn')}
           >
             {isFullscreen ? <Minimize2 className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
           </button>
 
-          <button type="button" onClick={onExit} className={control} aria-label="Exit focus mode" title="Exit focus mode (Esc)">
+          <button type="button" onClick={onExit} className={control} aria-label={t('focus.exit')} title={t('focus.exit')}>
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
@@ -112,19 +162,23 @@ export function FocusStage({
 
       {/* The stage itself — the panel is centred on both axes. */}
       <div className="flex min-h-0 flex-1 items-center justify-center gap-4 px-4 pb-2">
-        <button type="button" onClick={onPrev} className={`${control} shrink-0`} aria-label="Previous panel" title="Previous (←)">
-          <ChevronLeft className="h-5 w-5" aria-hidden />
+        <button type="button" onClick={onPrev} className={`${control} shrink-0`} aria-label={t('focus.prev')} title={t('focus.prev')}>
+          {isRtl ? <ChevronRight className="h-5 w-5" aria-hidden /> : <ChevronLeft className="h-5 w-5" aria-hidden />}
         </button>
 
-        {/* Scaled up for reading at a distance — this mode is meant to be projected. */}
-        <div className="flex max-h-full w-full max-w-3xl justify-center overflow-y-auto">
-          <div className="w-full [&>section]:p-8 [&_h2]:text-3xl [&_h2_svg]:h-8 [&_h2_svg]:w-8 [&_input]:text-lg [&_li_button]:text-xl [&_li_button]:py-1.5 [&_p]:text-lg">
+        <div className="flex max-h-full w-full max-w-3xl justify-center overflow-y-auto overflow-x-hidden">
+          {/* Scaled up for reading at a distance — this mode is meant to be projected. */}
+          <div
+            key={index}
+            className="w-full [&>section]:p-8 [&_h2]:text-3xl [&_h2_svg]:h-8 [&_h2_svg]:w-8 [&_input]:text-lg [&_li_button]:text-xl [&_li_button]:py-1.5 [&_p]:text-lg"
+            style={{ animation: `focus-slide-${slide} 260ms cubic-bezier(0.22, 1, 0.36, 1)` }}
+          >
             {children}
           </div>
         </div>
 
-        <button type="button" onClick={onNext} className={`${control} shrink-0`} aria-label="Next panel" title="Next (→)">
-          <ChevronRight className="h-5 w-5" aria-hidden />
+        <button type="button" onClick={onNext} className={`${control} shrink-0`} aria-label={t('focus.next')} title={t('focus.next')}>
+          {isRtl ? <ChevronLeft className="h-5 w-5" aria-hidden /> : <ChevronRight className="h-5 w-5" aria-hidden />}
         </button>
       </div>
 
@@ -134,7 +188,7 @@ export function FocusStage({
             key={dot}
             type="button"
             onClick={() => onGo(dot)}
-            aria-label={`Go to panel ${dot + 1}`}
+            aria-label={t('focus.goTo', { n: dot + 1 })}
             aria-current={dot === index}
             className={`h-2 rounded-full transition-all ${
               dot === index ? 'w-6 bg-blue-500' : 'w-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500'

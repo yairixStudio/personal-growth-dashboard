@@ -10,23 +10,25 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, Headphones, Pause, Play, Volume2 } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
+import type { StringKey } from '../i18n/strings';
 
 interface Preset {
   id: string;
-  name: string;
+  nameKey: StringKey;
+  descriptionKey: StringKey;
   /** Perceived beat, in Hz — the difference between the two ears. */
   beatHz: number;
   /** Base tone both ears hear. */
   carrierHz: number;
-  description: string;
 }
 
 const PRESETS: readonly Preset[] = [
-  { id: 'delta', name: 'Delta', beatHz: 2.5, carrierHz: 120, description: 'Deep rest' },
-  { id: 'theta', name: 'Theta', beatHz: 6, carrierHz: 150, description: 'Drifting, creative' },
-  { id: 'alpha', name: 'Alpha', beatHz: 10, carrierHz: 180, description: 'Calm focus' },
-  { id: 'beta', name: 'Beta', beatHz: 18, carrierHz: 200, description: 'Alert, working' },
-  { id: 'gamma', name: 'Gamma', beatHz: 40, carrierHz: 220, description: 'Sharp, engaged' },
+  { id: 'delta', nameKey: 'music.delta', descriptionKey: 'music.deltaDesc', beatHz: 2.5, carrierHz: 120 },
+  { id: 'theta', nameKey: 'music.theta', descriptionKey: 'music.thetaDesc', beatHz: 6, carrierHz: 150 },
+  { id: 'alpha', nameKey: 'music.alpha', descriptionKey: 'music.alphaDesc', beatHz: 10, carrierHz: 180 },
+  { id: 'beta', nameKey: 'music.beta', descriptionKey: 'music.betaDesc', beatHz: 18, carrierHz: 200 },
+  { id: 'gamma', nameKey: 'music.gamma', descriptionKey: 'music.gammaDesc', beatHz: 40, carrierHz: 220 },
 ] as const;
 
 const FADE_SECONDS = 0.35;
@@ -70,6 +72,7 @@ interface Graph {
 }
 
 export function MusicPlayer() {
+  const { t } = useI18n();
   const [presetId, setPresetId] = useState<string>('alpha');
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.35);
@@ -188,19 +191,19 @@ export function MusicPlayer() {
 
   return (
     <aside
-      aria-label="Brainwave player"
-      className="fixed bottom-5 right-5 z-40 w-72 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-800/95"
+      aria-label={t('music.title')}
+      className="fixed bottom-5 end-5 z-40 w-72 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-800/95"
     >
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-100">
           <Headphones className="h-4 w-4 text-blue-500" aria-hidden />
-          Brainwaves
+          {t('music.title')}
         </h2>
         <button
           type="button"
           onClick={() => setIsCollapsed((value) => !value)}
           aria-expanded={!isCollapsed}
-          aria-label={isCollapsed ? 'Expand player' : 'Collapse player'}
+          aria-label={isCollapsed ? t('music.expand') : t('music.collapse')}
           className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
         >
           <ChevronDown className={`h-4 w-4 transition-transform ${isCollapsed ? '' : 'rotate-180'}`} aria-hidden />
@@ -215,32 +218,32 @@ export function MusicPlayer() {
                 key={entry.id}
                 type="button"
                 onClick={() => setPresetId(entry.id)}
-                title={`${entry.description} · ${entry.beatHz} Hz`}
+                title={t('music.beat', { description: t(entry.descriptionKey), hz: entry.beatHz })}
                 className={`rounded-full px-2.5 py-1 text-xs transition-colors ${
                   entry.id === preset.id
                     ? 'bg-blue-500 font-medium text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
-                {entry.name}
+                {t(entry.nameKey)}
               </button>
             ))}
           </div>
 
           <p className="text-center text-xs text-gray-500 dark:text-gray-400">
-            {preset.description} · {preset.beatHz} Hz beat
+            {t('music.beat', { description: t(preset.descriptionKey), hz: preset.beatHz })}
           </p>
 
-          {failed && <p className="text-center text-xs text-red-500">Audio could not start on this device.</p>}
+          {failed && <p className="text-center text-xs text-red-500">{t('music.failed')}</p>}
 
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setIsPlaying((value) => !value)}
-              aria-label={isPlaying ? 'Pause' : 'Play'}
+              aria-label={isPlaying ? t('music.pause') : t('music.play')}
               className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-500 text-white transition-colors hover:bg-blue-600"
             >
-              {isPlaying ? <Pause className="h-4 w-4" aria-hidden /> : <Play className="ml-0.5 h-4 w-4" aria-hidden />}
+              {isPlaying ? <Pause className="h-4 w-4" aria-hidden /> : <Play className="ms-0.5 h-4 w-4" aria-hidden />}
             </button>
 
             <Volume2 className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
@@ -251,7 +254,7 @@ export function MusicPlayer() {
               step={0.01}
               value={volume}
               onChange={(event) => setVolume(Number(event.target.value))}
-              aria-label="Volume"
+              aria-label={t('music.volume')}
               className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-gray-200 accent-blue-500 dark:bg-gray-600"
             />
           </div>
@@ -263,11 +266,11 @@ export function MusicPlayer() {
               onChange={(event) => setWithNoise(event.target.checked)}
               className="accent-blue-500"
             />
-            Pink noise bed
+            {t('music.noise')}
           </label>
 
           <p className="text-center text-[11px] leading-tight text-gray-400 dark:text-gray-500">
-            Use headphones — the effect comes from the difference between your ears.
+            {t('music.headphones')}
           </p>
         </div>
       )}

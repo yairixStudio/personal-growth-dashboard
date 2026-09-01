@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Trash2, Video as VideoIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
 import type { VideoItem } from '../types';
 import { Panel } from './Panel';
 
@@ -34,6 +35,7 @@ export function VideoPanel({
   onAdd,
   onRemove,
 }: VideoPanelProps) {
+  const { t } = useI18n();
   const [isAdding, setIsAdding] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftUrl, setDraftUrl] = useState('');
@@ -56,11 +58,11 @@ export function VideoPanel({
     const name = draftTitle.trim();
     const url = draftUrl.trim();
     if (!name || !url) {
-      setError('Both a title and a URL are needed.');
+      setError(t('video.needBoth'));
       return;
     }
     if (!youtubeId(url)) {
-      setError("That doesn't look like a YouTube link.");
+      setError(t('video.notYouTube'));
       return;
     }
     onAdd(name, url);
@@ -78,7 +80,7 @@ export function VideoPanel({
       isSpotlit={isSpotlit}
       onSelect={onSelect}
       onAdd={() => setIsAdding(true)}
-      addLabel="Add a video"
+      addLabel={t('video.add')}
     >
       {isAdding && (
         <div className="mb-3 space-y-2" onClick={(event) => event.stopPropagation()}>
@@ -87,7 +89,7 @@ export function VideoPanel({
             autoFocus
             value={draftTitle}
             onChange={(event) => setDraftTitle(event.target.value)}
-            placeholder="Title"
+            placeholder={t('video.title')}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
           />
           <input
@@ -95,7 +97,7 @@ export function VideoPanel({
             value={draftUrl}
             onChange={(event) => setDraftUrl(event.target.value)}
             onKeyDown={(event) => event.key === 'Enter' && submit()}
-            placeholder="https://youtube.com/watch?v=..."
+            placeholder={t('video.url')}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
           />
           {error && <p className="text-xs text-red-500">{error}</p>}
@@ -105,7 +107,7 @@ export function VideoPanel({
               onClick={submit}
               className="flex-1 rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600"
             >
-              Add video
+              {t('video.submit')}
             </button>
             <button
               type="button"
@@ -115,14 +117,14 @@ export function VideoPanel({
               }}
               className="rounded-lg px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </div>
       )}
 
       {videos.length === 0 ? (
-        <p className="py-2 text-sm text-gray-400 dark:text-gray-500">No videos yet.</p>
+        <p className="py-2 text-sm text-gray-400 dark:text-gray-500">{t('video.empty')}</p>
       ) : (
         <div className="space-y-3" onClick={(event) => event.stopPropagation()}>
           <div className="aspect-video w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
@@ -137,8 +139,8 @@ export function VideoPanel({
               />
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                <VideoIcon className="mr-2 h-4 w-4" aria-hidden />
-                Unplayable link
+                <VideoIcon className="me-2 h-4 w-4" aria-hidden />
+                {t('video.unplayable')}
               </div>
             )}
           </div>
@@ -154,14 +156,14 @@ export function VideoPanel({
                 <button
                   type="button"
                   onClick={() => setSelectedId(video.id)}
-                  className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm text-gray-800 dark:text-gray-200"
+                  className="min-w-0 flex-1 truncate px-2 py-1.5 text-start text-sm text-gray-800 dark:text-gray-200"
                 >
                   {video.title}
                 </button>
                 <button
                   type="button"
                   onClick={() => onRemove(video.id)}
-                  aria-label={`Remove "${video.title}"`}
+                  aria-label={t('video.remove', { title: video.title })}
                   className="rounded-full p-1 text-red-500 opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-red-900/40"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden />

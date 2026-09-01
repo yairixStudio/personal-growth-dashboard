@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { Check, GripVertical, LayoutGrid, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useI18n } from '../i18n/I18nProvider';
 import type { Workspace } from '../types';
 
 export const WORKSPACE_DROPPABLE_ID = 'workspaces';
@@ -24,6 +25,7 @@ export function WorkspaceSelector({
   onRename,
   onRequestDelete,
 }: WorkspaceSelectorProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [draft, setDraft] = useState('');
@@ -40,7 +42,7 @@ export function WorkspaceSelector({
 
   return (
     <div
-      className="fixed left-4 top-4 z-50"
+      className="fixed start-4 top-4 z-50"
       onMouseEnter={() => setIsOpen(true)}
       onMouseLeave={() => {
         setIsOpen(false);
@@ -52,10 +54,10 @@ export function WorkspaceSelector({
           type="button"
           onClick={() => setIsOpen((value) => !value)}
           aria-expanded={isOpen}
-          className="flex w-full items-center gap-2 rounded-xl p-3 text-left text-gray-800 dark:text-gray-100"
+          className="flex w-full items-center gap-2 rounded-xl p-3 text-start text-gray-800 dark:text-gray-100"
         >
           <LayoutGrid className="h-4 w-4 shrink-0 text-blue-500" aria-hidden />
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{current?.name ?? 'Workspaces'}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{current?.name ?? t('workspace.title')}</span>
         </button>
 
         {isOpen && (
@@ -75,7 +77,7 @@ export function WorkspaceSelector({
                         >
                           <span
                             {...draggable.dragHandleProps}
-                            aria-label="Reorder workspace"
+                            aria-label={t('workspace.reorder')}
                             className="cursor-grab p-1 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-gray-600"
                           >
                             <GripVertical className="h-4 w-4" aria-hidden />
@@ -103,7 +105,7 @@ export function WorkspaceSelector({
                             <button
                               type="button"
                               onClick={() => onSwitch(workspace.id)}
-                              className={`min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm transition-colors ${
+                              className={`min-w-0 flex-1 truncate rounded px-2 py-1.5 text-start text-sm transition-colors ${
                                 workspace.id === currentId
                                   ? 'bg-blue-100 font-medium text-blue-900 dark:bg-blue-900/60 dark:text-blue-100'
                                   : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
@@ -116,7 +118,7 @@ export function WorkspaceSelector({
                           <button
                             type="button"
                             onClick={() => setEditingId(editingId === workspace.id ? null : workspace.id)}
-                            aria-label={`Rename ${workspace.name}`}
+                            aria-label={t('workspace.rename', { name: workspace.name })}
                             className="rounded p-1 text-blue-500 opacity-0 transition-opacity hover:bg-blue-50 group-hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-blue-900/40"
                           >
                             {editingId === workspace.id ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Pencil className="h-3.5 w-3.5" aria-hidden />}
@@ -126,7 +128,7 @@ export function WorkspaceSelector({
                             <button
                               type="button"
                               onClick={() => onRequestDelete(workspace)}
-                              aria-label={`Delete ${workspace.name}`}
+                              aria-label={t('workspace.delete', { name: workspace.name })}
                               className="rounded p-1 text-red-500 opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-red-900/40"
                             >
                               <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -155,7 +157,7 @@ export function WorkspaceSelector({
                       setIsAdding(false);
                     }
                   }}
-                  placeholder="Workspace name"
+                  placeholder={t('workspace.namePlaceholder')}
                   className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                 />
                 <button
@@ -163,7 +165,7 @@ export function WorkspaceSelector({
                   onClick={commitAdd}
                   className="rounded-lg bg-blue-500 px-3 text-sm text-white transition-colors hover:bg-blue-600"
                 >
-                  Add
+                  {t('workspace.add')}
                 </button>
               </div>
             ) : (
@@ -173,7 +175,7 @@ export function WorkspaceSelector({
                 className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg p-2 text-sm text-blue-500 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/40"
               >
                 <Plus className="h-4 w-4" aria-hidden />
-                New workspace
+                {t('workspace.new')}
               </button>
             )}
           </div>

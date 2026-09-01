@@ -1,3 +1,5 @@
+import type { Language } from './i18n/strings';
+
 /** Domain model. Every collection item carries a stable id — see `migrate.ts`
  *  for why the v1 shape (plain strings, keyed objects) could not keep one. */
 
@@ -43,6 +45,7 @@ export interface Workspace {
 export interface Settings {
   darkMode: boolean;
   focusDelayMs: number;
+  language: Language;
 }
 
 export interface AppState {
