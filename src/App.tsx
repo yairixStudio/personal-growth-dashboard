@@ -82,8 +82,14 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
     if (!isFocusMode || isHeld) return;
 
     const startedAt = Date.now() - elapsedRef.current;
+    // The cleanup also runs after a normal fire, when the effect re-runs for the
+    // new panel. Banking the elapsed time then would record a whole interval and
+    // make every following one expire instantly.
+    let fired = false;
+
     const timer = window.setTimeout(
       () => {
+        fired = true;
         elapsedRef.current = 0;
         setDirection(1);
         setSpotlight((current) => {
@@ -97,7 +103,7 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
 
     return () => {
       window.clearTimeout(timer);
-      elapsedRef.current = Math.min(delayMs, Date.now() - startedAt);
+      if (!fired) elapsedRef.current = Math.min(delayMs, Date.now() - startedAt);
     };
   }, [isFocusMode, isHeld, delayMs, spotlight]);
 
