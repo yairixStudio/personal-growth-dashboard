@@ -42,10 +42,18 @@ export interface Workspace {
   vision: VisionImage[];
 }
 
+export interface Background {
+  /** File name inside the app's backgrounds directory, or null for none. */
+  file: string | null;
+  /** Opacity of the scrim laid over the image, 0–1. Dark in dark mode, light in light. */
+  overlay: number;
+}
+
 export interface Settings {
   darkMode: boolean;
   focusDelayMs: number;
   language: Language;
+  background: Background;
 }
 
 export interface AppState {

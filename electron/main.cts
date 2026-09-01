@@ -20,13 +20,22 @@ interface VisionImage {
 
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:5173';
 const VISION_DIRNAME = 'vision-board';
+const BACKGROUND_DIRNAME = 'backgrounds';
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp'];
 const ALLOWED_EXTENSIONS = new Set(IMAGE_EXTENSIONS.map((ext) => `.${ext}`));
 
 const store = new Store<{ state?: unknown }>({ name: 'personal-growth' });
 
-/** Absolute path to the directory holding copied vision-board images. */
+/** Absolute paths to the directories holding copied user images. */
 let visionDir = '';
+let backgroundDir = '';
+
+/** `media://<area>/<file>` resolves through here, and nowhere else. */
+function areaDir(area: string): string | null {
+  if (area === 'vision') return visionDir;
+  if (area === 'background') return backgroundDir;
+  return null;
+}
 
 /**
  * `media://` serves vision-board images. Registering it as privileged has to
@@ -45,19 +54,25 @@ function isDev(): boolean {
   return !app.isPackaged && process.env.NODE_ENV !== 'production';
 }
 
-async function ensureVisionDir(): Promise<void> {
-  visionDir = path.join(app.getPath('userData'), VISION_DIRNAME);
+async function ensureDirs(): Promise<void> {
+  const userData = app.getPath('userData');
+  visionDir = path.join(userData, VISION_DIRNAME);
+  backgroundDir = path.join(userData, BACKGROUND_DIRNAME);
   await fs.mkdir(visionDir, { recursive: true });
+  await fs.mkdir(backgroundDir, { recursive: true });
 }
 
 function registerMediaProtocol(): void {
   protocol.handle('media', async (request) => {
-    // Only ever resolve a bare filename inside visionDir — never a traversal.
+    // Only ever resolve a bare filename inside a known directory — no traversal.
     const url = new URL(request.url);
-    const file = path.basename(decodeURIComponent(url.pathname));
-    const target = path.join(visionDir, file);
+    const dir = areaDir(url.hostname);
+    if (!dir) return new Response('Not found', { status: 404 });
 
-    if (path.dirname(target) !== visionDir) {
+    const file = path.basename(decodeURIComponent(url.pathname));
+    const target = path.join(dir, file);
+
+    if (path.dirname(target) !== dir) {
       return new Response('Forbidden', { status: 403 });
     }
     try {
@@ -196,6 +211,72 @@ function registerIpc(): void {
     if (path.dirname(target) !== visionDir) return;
     await fs.rm(target, { force: true });
   });
+
+  /** Generated rather than shipped, so no binary assets ride along in the app. */
+  ipcMain.handle('vision:samples', async (): Promise<VisionImage[]> => {
+    const swatches: Array<[number, number, string, string, string]> = [
+      [900, 1200, '#6366f1', '#a78bfa', 'Somewhere high'],
+      [1200, 800, '#0ea5e9', '#22d3ee', 'Open water'],
+      [1000, 1000, '#f59e0b', '#fbbf24', 'Long light'],
+      [900, 1250, '#10b981', '#34d399', 'Deep green'],
+      [1200, 780, '#ef4444', '#fb7185', 'Last hour'],
+      [950, 1150, '#8b5cf6', '#c084fc', 'After dark'],
+    ];
+
+    const added: VisionImage[] = [];
+    for (const [width, height, from, to, name] of swatches) {
+      const id = randomUUID();
+      const file = `${id}.svg`;
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
+        `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+        `<stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs>` +
+        `<rect width="${width}" height="${height}" fill="url(#g)"/>` +
+        `<circle cx="${width * 0.68}" cy="${height * 0.28}" r="${Math.min(width, height) * 0.16}" fill="rgba(255,255,255,0.22)"/>` +
+        `<path d="M0 ${height} L${width * 0.32} ${height * 0.58} L${width * 0.56} ${height * 0.8} L${width * 0.8} ${height * 0.48} L${width} ${height} Z" fill="rgba(0,0,0,0.16)"/>` +
+        `</svg>`;
+      try {
+        await fs.writeFile(path.join(visionDir, file), svg, 'utf8');
+        added.push({ id, file, name });
+      } catch (error) {
+        console.error('Could not write a sample image:', error);
+      }
+    }
+    return added;
+  });
+
+  ipcMain.handle('background:choose', async (event): Promise<string | null> => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return null;
+
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Choose a background image',
+      buttonLabel: 'Use image',
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: IMAGE_EXTENSIONS }],
+    });
+    const source = result.canceled ? undefined : result.filePaths[0];
+    if (!source) return null;
+
+    const extension = path.extname(source).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.has(extension)) return null;
+
+    const file = `${randomUUID()}${extension}`;
+    try {
+      await fs.copyFile(source, path.join(backgroundDir, file));
+      return file;
+    } catch (error) {
+      console.error('Could not copy the background:', error);
+      return null;
+    }
+  });
+
+  ipcMain.handle('background:remove', async (_event, file: unknown) => {
+    if (typeof file !== 'string') return;
+    const target = path.join(backgroundDir, path.basename(file));
+    if (path.dirname(target) !== backgroundDir) return;
+    await fs.rm(target, { force: true });
+  });
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -210,7 +291,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(async () => {
-    await ensureVisionDir();
+    await ensureDirs();
     registerMediaProtocol();
     registerIpc();
     createWindow();

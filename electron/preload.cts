@@ -17,6 +17,10 @@ const desktop = {
   addVisionImages: (): Promise<VisionImage[]> => ipcRenderer.invoke('vision:add'),
   importVisionImages: (paths: string[]): Promise<VisionImage[]> => ipcRenderer.invoke('vision:import', paths),
   removeVisionImage: (file: string): Promise<void> => ipcRenderer.invoke('vision:remove', file),
+  sampleVisionImages: (): Promise<VisionImage[]> => ipcRenderer.invoke('vision:samples'),
+
+  chooseBackground: (): Promise<string | null> => ipcRenderer.invoke('background:choose'),
+  removeBackground: (file: string): Promise<void> => ipcRenderer.invoke('background:remove', file),
 
   /** Electron 32+ removed `File.path`; this is the supported replacement, and it
    *  has to be called here because `webUtils` does not cross the bridge. */

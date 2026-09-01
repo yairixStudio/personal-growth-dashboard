@@ -19,6 +19,8 @@ interface FocusStageProps {
   isFullscreen: boolean;
   /** Let the panel use the whole stage instead of the centred card column. */
   bleed: boolean;
+  /** A wallpaper is showing, so the stage must not paint over it. */
+  hasBackground: boolean;
   delayMs: number;
   onPrev: () => void;
   onNext: () => void;
@@ -26,7 +28,6 @@ interface FocusStageProps {
   onTogglePause: () => void;
   onToggleFullscreen: () => void;
   onExit: () => void;
-  onDelayChange: (ms: number) => void;
   children: ReactNode;
 }
 
@@ -41,6 +42,7 @@ export function FocusStage({
   isPaused,
   isFullscreen,
   bleed,
+  hasBackground,
   delayMs,
   onPrev,
   onNext,
@@ -48,7 +50,6 @@ export function FocusStage({
   onTogglePause,
   onToggleFullscreen,
   onExit,
-  onDelayChange,
   children,
 }: FocusStageProps) {
   const { t, isRtl } = useI18n();
@@ -95,29 +96,17 @@ export function FocusStage({
   );
 
   return (
-    <div className="fixed inset-0 z-30 flex flex-col bg-gradient-to-b from-gray-100 to-gray-200 dark:from-gray-900 dark:to-black">
+    <div
+      className={`fixed inset-0 z-30 flex flex-col ${
+        hasBackground ? '' : 'bg-gradient-to-b from-gray-100 to-gray-200 dark:from-gray-900 dark:to-black'
+      }`}
+    >
       <div className="flex items-center justify-between gap-3 p-4">
         <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
           {label} · {index + 1}/{total}
         </span>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-full bg-white/70 px-3 py-2 shadow-sm backdrop-blur dark:bg-gray-800/70">
-            <input
-              type="range"
-              min={1000}
-              max={15000}
-              step={500}
-              value={delayMs}
-              onChange={(event) => onDelayChange(Number(event.target.value))}
-              aria-label={t('focus.delay')}
-              className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-gray-200 accent-blue-500 dark:bg-gray-600"
-            />
-            <span className="min-w-[3ch] text-xs tabular-nums text-gray-600 dark:text-gray-300">
-              {(delayMs / 1000).toFixed(delayMs % 1000 === 0 ? 0 : 1)}s
-            </span>
-          </div>
-
           <button
             type="button"
             onClick={onTogglePause}

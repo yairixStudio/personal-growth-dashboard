@@ -11,6 +11,7 @@ import { newId } from '../lib/id';
 import { emptyLists, LIST_IDS, type AppState, type Item, type VideoItem, type VisionImage, type Workspace } from '../types';
 
 const DEFAULT_FOCUS_DELAY_MS = 4000;
+const DEFAULT_OVERLAY = 0.72;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -86,6 +87,7 @@ export function createDefaultState(): AppState {
       darkMode: false,
       focusDelayMs: DEFAULT_FOCUS_DELAY_MS,
       language: detectLanguage(navigator.language),
+    background: { file: null, overlay: DEFAULT_OVERLAY },
     },
   };
 }
@@ -104,6 +106,16 @@ function migrateSettings(raw: Record<string, unknown>, legacyDarkMode: unknown):
     focusDelayMs: Number.isFinite(delay) && delay >= 1000 && delay <= 20000 ? delay : DEFAULT_FOCUS_DELAY_MS,
     // No stored language means this is a first run or a v1 file: follow the OS.
     language: isLanguage(settings.language) ? settings.language : detectLanguage(navigator.language),
+    background: migrateBackground(settings.background),
+  };
+}
+
+function migrateBackground(raw: unknown): AppState['settings']['background'] {
+  if (!isRecord(raw)) return { file: null, overlay: DEFAULT_OVERLAY };
+  const overlay = Number(raw.overlay);
+  return {
+    file: typeof raw.file === 'string' && raw.file ? raw.file : null,
+    overlay: Number.isFinite(overlay) && overlay >= 0 && overlay <= 1 ? overlay : DEFAULT_OVERLAY,
   };
 }
 

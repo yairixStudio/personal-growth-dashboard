@@ -1,6 +1,7 @@
 /** Composition root: one DragDropContext, one grid generated from PANELS. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
+import { BackgroundLayer } from './components/BackgroundLayer';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { FocusStage } from './components/FocusStage';
 import { ListPanel } from './components/ListPanel';
@@ -12,7 +13,7 @@ import { VisionBoardPanel } from './components/VisionBoardPanel';
 import { WorkspaceSelector, WORKSPACE_DROPPABLE_ID } from './components/WorkspaceSelector';
 import { I18nProvider, useI18n } from './i18n/I18nProvider';
 import { PANELS, PANEL_COUNT, type PanelDef } from './panels';
-import { sampleLists } from './sample-content';
+import { sampleLists, sampleVideos } from './sample-content';
 import { useAppState } from './state/useAppState';
 import { useFullscreen } from './state/useFullscreen';
 import { LIST_IDS, type ListId, type VisionImage, type Workspace } from './types';
@@ -208,12 +209,32 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
     [addVisionImages, dispatch, importVisionImages, removeVisionImage, t, workspace],
   );
 
+  /** Fills every panel: lists, videos, and freshly generated vision images. */
+  const fillSample = useCallback(async () => {
+    let vision: VisionImage[] = [];
+    try {
+      vision = await window.desktop.sampleVisionImages();
+    } catch (error) {
+      console.error('Could not create sample images.', error);
+    }
+    dispatch({
+      type: 'workspace/fill',
+      content: {
+        lists: sampleLists(state.settings.language),
+        videos: sampleVideos(state.settings.language),
+        vision,
+      },
+    });
+  }, [dispatch, state.settings.language]);
+
   const settingsDialog = showSettings && (
     <SettingsDialog
       settings={state.settings}
       onLanguageChange={(value) => dispatch({ type: 'settings/language', value })}
       onDarkModeChange={(value) => dispatch({ type: 'settings/darkMode', value })}
       onFocusDelayChange={(value) => dispatch({ type: 'settings/focusDelay', value })}
+      onBackgroundChange={(file) => dispatch({ type: 'settings/background', file })}
+      onOverlayChange={(value) => dispatch({ type: 'settings/overlay', value })}
       onClose={() => setShowSettings(false)}
     />
   );
@@ -227,9 +248,12 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
   }
 
   const activePanel = PANELS[spotlight];
+  const hasBackground = Boolean(state.settings.background.file);
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
+      <BackgroundLayer background={state.settings.background} darkMode={state.settings.darkMode} />
+
       {isFocusMode ? (
         <FocusStage
           index={spotlight}
@@ -239,6 +263,7 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
           isPaused={isPaused}
           isFullscreen={isFullscreen}
           bleed={activePanel.kind === 'vision'}
+          hasBackground={hasBackground}
           delayMs={state.settings.focusDelayMs}
           onPrev={() => {
             goTo(spotlightRef.current - 1, -1);
@@ -255,12 +280,11 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
           onTogglePause={() => setIsPaused((value) => !value)}
           onToggleFullscreen={toggleFullscreen}
           onExit={() => setIsFocusMode(false)}
-          onDelayChange={(value) => dispatch({ type: 'settings/focusDelay', value })}
         >
           {renderPanel(activePanel, activePanel.kind === 'vision')}
         </FocusStage>
       ) : (
-        <div className="min-h-screen bg-gray-50 p-5 transition-colors dark:bg-gray-900">
+        <div className={`min-h-screen p-5 transition-colors ${hasBackground ? '' : 'bg-gray-50 dark:bg-gray-900'}`}>
           <WorkspaceSelector
             workspaces={state.workspaces}
             currentId={state.currentWorkspaceId}
@@ -272,16 +296,12 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
 
           <Toolbar
             isFullscreen={isFullscreen}
-            darkMode={state.settings.darkMode}
             onEnterFocus={() => {
               setIsFocusMode(true);
               setIsPaused(false);
             }}
             onToggleFullscreen={toggleFullscreen}
-            onFillSample={() =>
-              dispatch({ type: 'workspace/fill', content: { lists: sampleLists(state.settings.language) } })
-            }
-            onToggleTheme={() => dispatch({ type: 'settings/darkMode', value: !state.settings.darkMode })}
+            onFillSample={() => void fillSample()}
             onOpenSettings={() => setShowSettings(true)}
           />
 

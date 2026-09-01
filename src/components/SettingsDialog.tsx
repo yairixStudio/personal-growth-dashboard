@@ -1,15 +1,18 @@
-/** Language, appearance and focus-mode timing. */
-import { useEffect } from 'react';
-import { X } from 'lucide-react';
+/** Language, appearance, background and focus-mode timing. */
+import { useCallback, useEffect } from 'react';
+import { ImagePlus, Trash2, X } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 import { LANGUAGES, LANGUAGE_NAMES, type Language } from '../i18n/strings';
 import type { Settings } from '../types';
+import { backgroundUrl } from './BackgroundLayer';
 
 interface SettingsDialogProps {
   settings: Settings;
   onLanguageChange: (value: Language) => void;
   onDarkModeChange: (value: boolean) => void;
   onFocusDelayChange: (ms: number) => void;
+  onBackgroundChange: (file: string | null) => void;
+  onOverlayChange: (value: number) => void;
   onClose: () => void;
 }
 
@@ -18,6 +21,8 @@ export function SettingsDialog({
   onLanguageChange,
   onDarkModeChange,
   onFocusDelayChange,
+  onBackgroundChange,
+  onOverlayChange,
   onClose,
 }: SettingsDialogProps) {
   const { t } = useI18n();
@@ -29,6 +34,21 @@ export function SettingsDialog({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
+
+  const chooseBackground = useCallback(async () => {
+    try {
+      const file = await window.desktop.chooseBackground();
+      if (file) onBackgroundChange(file);
+    } catch (error) {
+      console.error('Could not set the background.', error);
+    }
+  }, [onBackgroundChange]);
+
+  const clearBackground = useCallback(() => {
+    const previous = settings.background.file;
+    onBackgroundChange(null);
+    if (previous) void window.desktop.removeBackground(previous);
+  }, [onBackgroundChange, settings.background.file]);
 
   const choice = (active: boolean) =>
     `rounded-lg border px-3 py-2 text-sm transition-colors ${
@@ -44,7 +64,7 @@ export function SettingsDialog({
         aria-modal="true"
         aria-labelledby="settings-title"
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl dark:bg-gray-800"
+        className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-2xl dark:bg-gray-800"
       >
         <header className="mb-4 flex items-center justify-between">
           <h2 id="settings-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -89,6 +109,65 @@ export function SettingsDialog({
               {t('settings.dark')}
             </button>
           </div>
+        </section>
+
+        <section className="mb-5">
+          <h3 className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-200">{t('settings.background')}</h3>
+          <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">{t('settings.backgroundHint')}</p>
+
+          {settings.background.file ? (
+            <div className="flex items-center gap-3">
+              <img
+                src={backgroundUrl(settings.background.file)}
+                alt=""
+                className="h-16 w-24 shrink-0 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-gray-600"
+              />
+              <div className="flex flex-1 flex-wrap gap-2">
+                <button type="button" onClick={() => void chooseBackground()} className={choice(false)}>
+                  {t('settings.backgroundReplace')}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearBackground}
+                  className="rounded-lg border border-transparent px-3 py-2 text-sm text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/40"
+                >
+                  <Trash2 className="me-1 inline h-4 w-4" aria-hidden />
+                  {t('settings.backgroundRemove')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void chooseBackground()}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 py-4 text-sm text-gray-500 transition-colors hover:border-blue-400 hover:text-blue-500 dark:border-gray-600 dark:text-gray-400"
+            >
+              <ImagePlus className="h-5 w-5" aria-hidden />
+              {t('settings.backgroundChoose')}
+            </button>
+          )}
+
+          {settings.background.file && (
+            <label className="mt-3 block">
+              <span className="mb-1 block text-xs text-gray-600 dark:text-gray-300">
+                {settings.darkMode ? t('settings.overlayDark') : t('settings.overlayLight')}
+              </span>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  value={settings.background.overlay}
+                  onChange={(event) => onOverlayChange(Number(event.target.value))}
+                  className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-gray-200 accent-blue-500 dark:bg-gray-600"
+                />
+                <span className="min-w-[4ch] text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                  {Math.round(settings.background.overlay * 100)}%
+                </span>
+              </div>
+            </label>
+          )}
         </section>
 
         <section className="mb-5">

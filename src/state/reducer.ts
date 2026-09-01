@@ -23,7 +23,9 @@ export type Action =
   | { type: 'settings/darkMode'; value: boolean }
   | { type: 'settings/focusDelay'; value: number }
   | { type: 'settings/language'; value: Language }
-  | { type: 'workspace/fill'; content: Pick<Workspace, 'lists'> };
+  | { type: 'settings/background'; file: string | null }
+  | { type: 'settings/overlay'; value: number }
+  | { type: 'workspace/fill'; content: Pick<Workspace, 'lists' | 'videos' | 'vision'> };
 
 function move<T>(list: T[], from: number, to: number): T[] {
   const next = list.slice();
@@ -200,8 +202,25 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'settings/language':
       return { ...state, settings: { ...state.settings, language: action.value } };
 
+    case 'settings/background':
+      return {
+        ...state,
+        settings: { ...state.settings, background: { ...state.settings.background, file: action.file } },
+      };
+
+    case 'settings/overlay':
+      return {
+        ...state,
+        settings: { ...state.settings, background: { ...state.settings.background, overlay: action.value } },
+      };
+
     case 'workspace/fill':
-      return updateCurrent(state, (workspace) => ({ ...workspace, lists: action.content.lists }));
+      return updateCurrent(state, (workspace) => ({
+        ...workspace,
+        lists: action.content.lists,
+        videos: action.content.videos,
+        vision: [...workspace.vision, ...action.content.vision],
+      }));
 
     default:
       return state;
