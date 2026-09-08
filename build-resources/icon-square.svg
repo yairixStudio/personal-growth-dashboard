@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#60a5fa"/><stop offset="0.55" stop-color="#3b82f6"/><stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.22"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1024" height="1024" rx="225" fill="url(#g)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="225" fill="url(#sheen)"/>
+  <g transform="translate(512 512) scale(1.2427) translate(-512 -512)">
+    <path d="M512 796 V 300" fill="none" stroke="#fff" stroke-width="62" stroke-linecap="round"/>
+    <path d="M394 418 L 512 300 L 630 418" fill="none" stroke="#fff" stroke-width="62" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M505 648 C 468 560 382 504 298 500 C 294 594 372 650 505 648 Z" fill="#fff"/>
+    <path d="M519 752 C 556 664 642 608 726 604 C 730 698 652 754 519 752 Z" fill="#fff" opacity="0.8"/>
+  </g>
+</svg>

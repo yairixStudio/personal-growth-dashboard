@@ -93,8 +93,19 @@ jobs:
         shell: pwsh
         run: Install-Module -Name TrustedSigning -Force -Scope CurrentUser -AllowClobber
 
+      # An unset secret still arrives as a defined, empty environment variable,
+      # and electron-builder reads an empty CSC_LINK as a path to a certificate
+      # file — which fails with "not a file". Absent has to mean absent.
       - name: Package
-        run: npx electron-builder --config electron-builder.config.cjs ${{ matrix.args }} --publish never
+        shell: bash
+        run: |
+          for v in SIGN_AZURE_ENDPOINT SIGN_AZURE_ACCOUNT SIGN_AZURE_PROFILE \
+                   AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET \
+                   SIGN_PUBLISHER_NAME CSC_LINK CSC_KEY_PASSWORD \
+                   APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            [ -z "${!v}" ] && unset "$v"
+          done
+          npx electron-builder --config electron-builder.config.cjs ${{ matrix.args }} --publish never
 
       - uses: actions/upload-artifact@v4
         with:

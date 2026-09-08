@@ -3,6 +3,8 @@
   "private": true,
   "version": "2.0.0",
   "description": "Desktop dashboard for goals, values, strengths, gratitude, affirmations, quotes, a vision board and videos.",
+  "author": "Yairix Studio <yairixstudio@gmail.com>",
+  "homepage": "https://github.com/yairixStudio/personal-growth-dashboard",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
