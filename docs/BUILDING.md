@@ -271,9 +271,18 @@ expires; with it, they stay valid. The config pins DigiCert's RFC-3161 server.
 Secrets never belong in the repository. Put them in **Settings → Secrets and
 variables → Actions**, then reference them.
 
-`.github/workflows/release.yml` in this repo builds on a tag push. It signs only
-if the Azure secrets exist, so forks without them still get a working unsigned
-build rather than a failed one.
+`.github/workflows/release.yml` in this repo builds on a tag push (`v*`), or on
+demand from the Actions tab. A matrix runs the same commands on
+`windows-latest`, `macos-latest` and `ubuntu-latest` — an installer can only be
+produced on its own platform, so this is how one repository ships all three from
+one commit. macOS builds both `x64` and `arm64` disk images.
+
+Each runner uploads its output as a workflow artifact; a final job collects them
+and attaches everything to a **draft** GitHub Release named after the tag, which
+you review and publish by hand.
+
+Signing is driven purely by secrets. When they are absent the build still
+succeeds and produces an unsigned artefact, so forks and dry runs are never red.
 
 Secrets to set for signed Windows releases:
 

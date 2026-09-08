@@ -1,0 +1,127 @@
+# One repo, every platform.
+#
+# An installer can only be built on its own operating system, so the matrix runs
+# the same commands on three runners and collects the results into one GitHub
+# Release. Signing is driven purely by secrets: when they are absent the build
+# still succeeds and produces an unsigned artefact, so forks and dry runs are
+# never red.
+#
+# Trigger: push a tag (git tag v2.1.0 && git push --tags) to build and publish a
+# draft release, or run it by hand from the Actions tab to smoke-test the build
+# without publishing anything.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:        # smoke-test the build; publishes nothing
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    # Job-level so the "is signing configured?" checks below can read them:
+    # `secrets` is not an available context inside a step's `if:`, but `env` is.
+    env:
+      # Windows — Azure Trusted Signing. electron-builder.config.cjs only
+      # switches signing on when all three SIGN_AZURE_* values are present.
+      SIGN_AZURE_ENDPOINT: ${{ secrets.SIGN_AZURE_ENDPOINT }}
+      SIGN_AZURE_ACCOUNT: ${{ secrets.SIGN_AZURE_ACCOUNT }}
+      SIGN_AZURE_PROFILE: ${{ secrets.SIGN_AZURE_PROFILE }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      SIGN_PUBLISHER_NAME: ${{ secrets.SIGN_PUBLISHER_NAME }}
+
+      # macOS — Developer ID certificate plus notarisation. The config turns
+      # notarisation on only when APPLE_ID is set.
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # Without a certificate, don't let electron-builder fail the job just
+      # because it could not find one.
+      CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+            args: --win nsis --x64
+            artifacts: |
+              release/*.exe
+              release/*.exe.blockmap
+          - os: macos-latest
+            name: macOS
+            args: --mac dmg --x64 --arm64
+            artifacts: |
+              release/*.dmg
+              release/*.dmg.blockmap
+          - os: ubuntu-latest
+            name: Linux
+            args: --linux AppImage --x64
+            artifacts: |
+              release/*.AppImage
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and build
+        run: npm run build
+
+      # Azure Trusted Signing needs a PowerShell module Microsoft publishes
+      # separately. Only install it when the account is actually configured.
+      - name: Install Azure Trusted Signing module
+        if: matrix.os == 'windows-latest' && env.SIGN_AZURE_ENDPOINT != ''
+        shell: pwsh
+        run: Install-Module -Name TrustedSigning -Force -Scope CurrentUser -AllowClobber
+
+      - name: Package
+        run: npx electron-builder --config electron-builder.config.cjs ${{ matrix.args }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Attach builds to the release
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+                 --title "$tag" --generate-notes --draft
+          find artifacts -type f -print0 |
+            xargs -0 gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

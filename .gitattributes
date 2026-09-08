@@ -1,0 +1,36 @@
+# One repo, two platforms: normalise line endings so a Windows checkout and a
+# macOS checkout never produce diffs on files nobody edited.
+* text=auto eol=lf
+
+# Windows-only scripts must keep CRLF or cmd.exe/PowerShell may misbehave.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Shell scripts stay LF even on Windows checkouts.
+*.sh   text eol=lf
+
+# Never touched by the line-ending machinery.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.avif binary
+*.ico  binary
+*.icns binary
+*.mp4  binary
+*.mp3  binary
+*.wav  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary
+*.pfx  binary
+*.p12  binary
+*.dmg  binary
+*.exe  binary
+*.zip  binary
+
+# Generated — collapse in diffs and don't count toward language stats.
+package-lock.json linguist-generated=true -diff
