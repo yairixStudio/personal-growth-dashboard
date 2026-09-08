@@ -103,7 +103,7 @@ jobs:
                    AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET \
                    SIGN_PUBLISHER_NAME CSC_LINK CSC_KEY_PASSWORD \
                    APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
-            [ -z "${!v}" ] && unset "$v"
+            if [ -z "${!v}" ]; then unset "$v"; fi
           done
           npx electron-builder --config electron-builder.config.cjs ${{ matrix.args }} --publish never
 
