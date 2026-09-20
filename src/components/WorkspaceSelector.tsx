@@ -49,12 +49,19 @@ export function WorkspaceSelector({
         setEditingId(null);
       }}
     >
-      <div className={`rounded-xl bg-white shadow-lg transition-all duration-200 dark:bg-gray-800 ${isOpen ? 'w-72' : 'w-52'}`}>
+      <div
+        className={`rounded-xl transition-all duration-200 ${
+          isOpen ? 'w-72 bg-white shadow-lg dark:bg-gray-800' : 'w-52 bg-transparent'
+        }`}
+      >
         <button
           type="button"
           onClick={() => setIsOpen((value) => !value)}
+          onFocus={() => setIsOpen(true)}
           aria-expanded={isOpen}
-          className="flex w-full items-center gap-2 rounded-xl p-3 text-start text-gray-800 dark:text-gray-100"
+          className={`flex w-full items-center gap-2 rounded-xl p-3 text-start transition-opacity ${
+            isOpen ? 'text-gray-800 opacity-100 dark:text-gray-100' : 'text-gray-700 opacity-60 dark:text-gray-300'
+          }`}
         >
           <LayoutGrid className="h-4 w-4 shrink-0 text-blue-500" aria-hidden />
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">{current?.name ?? t('workspace.title')}</span>
@@ -129,7 +136,7 @@ export function WorkspaceSelector({
                               type="button"
                               onClick={() => onRequestDelete(workspace)}
                               aria-label={t('workspace.delete', { name: workspace.name })}
-                              className="rounded p-1 text-red-500 opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-red-900/40"
+                              className="rounded p-1 text-gray-400 hover:text-red-500 dark:text-gray-500 opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-red-900/40"
                             >
                               <Trash2 className="h-3.5 w-3.5" aria-hidden />
                             </button>

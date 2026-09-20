@@ -74,6 +74,23 @@ html.dark {
   }
 }
 
+/* Paper gets <PrintSheet> and nothing else — the grid, focus stage, wallpaper
+   and any open dialog are all direct children of #root. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  html,
+  html.dark {
+    background-color: #fff;
+  }
+
+  #root > :not([data-print-sheet]) {
+    display: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

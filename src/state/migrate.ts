@@ -8,7 +8,17 @@
  */
 import { detectLanguage, isLanguage } from '../i18n/strings';
 import { newId } from '../lib/id';
-import { emptyLists, LIST_IDS, type AppState, type Item, type VideoItem, type VisionImage, type Workspace } from '../types';
+import {
+  emptyLists,
+  LIST_IDS,
+  type AppState,
+  type CustomPanel,
+  type Item,
+  type PanelOverride,
+  type VideoItem,
+  type VisionImage,
+  type Workspace,
+} from '../types';
 
 const DEFAULT_FOCUS_DELAY_MS = 4000;
 const DEFAULT_OVERLAY = 0.72;
@@ -58,8 +68,34 @@ function toVision(value: unknown): VisionImage[] {
       id: asText(entry.id) || newId(),
       file: asText(entry.file),
       name: asText(entry.name),
+      note: typeof entry.note === 'string' && entry.note.trim() ? entry.note.trim() : undefined,
     }))
     .filter((image) => image.file);
+}
+
+function toCustomPanels(value: unknown): CustomPanel[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isRecord)
+    .map((entry) => ({
+      id: asText(entry.id) || newId(),
+      name: asText(entry.name),
+      kind: (entry.kind === 'videos' || entry.kind === 'vision' ? entry.kind : 'list') as CustomPanel['kind'],
+    }))
+    .filter((panel) => panel.name);
+}
+
+function toPanelOverrides(value: unknown): Record<string, PanelOverride> {
+  if (!isRecord(value)) return {};
+  const result: Record<string, PanelOverride> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (!isRecord(entry)) continue;
+    const override: PanelOverride = {};
+    if (typeof entry.name === 'string' && entry.name.trim()) override.name = entry.name.trim();
+    if (typeof entry.icon === 'string' && entry.icon) override.icon = entry.icon;
+    if (override.name || override.icon) result[key] = override;
+  }
+  return result;
 }
 
 function toWorkspace(name: string, raw: unknown, id?: string): Workspace {
@@ -68,12 +104,30 @@ function toWorkspace(name: string, raw: unknown, id?: string): Workspace {
   for (const listId of LIST_IDS) {
     lists[listId] = toItems(source[listId]);
   }
+  const customPanels = toCustomPanels(source.customPanels);
+  const customVideos: Workspace['customVideos'] = {};
+  const customVision: Workspace['customVision'] = {};
+  const rawVideos = isRecord(source.customVideos) ? source.customVideos : {};
+  const rawVision = isRecord(source.customVision) ? source.customVision : {};
+  for (const panel of customPanels) {
+    if (panel.kind === 'list') lists[panel.id] = toItems(source[panel.id]);
+    if (panel.kind === 'videos') customVideos[panel.id] = toVideos(rawVideos[panel.id]);
+    if (panel.kind === 'vision') customVision[panel.id] = toVision(rawVision[panel.id]);
+  }
   return {
     id: id || newId(),
     name: name || 'Untitled',
     lists,
+    customPanels,
     videos: toVideos(source.videos),
     vision: toVision(source.vision),
+    panelOverrides: toPanelOverrides(source.panelOverrides),
+    customVideos,
+    customVision,
+    panelOrder: Array.isArray(source.panelOrder) ? source.panelOrder.filter((k): k is string => typeof k === 'string') : [],
+    hiddenFixedPanels: Array.isArray(source.hiddenFixedPanels)
+      ? source.hiddenFixedPanels.filter((k): k is string => typeof k === 'string')
+      : [],
   };
 }
 
@@ -127,7 +181,23 @@ export function migrate(raw: unknown): AppState {
   if (Array.isArray(raw.workspaces)) {
     // v2 — already ordered.
     workspaces = raw.workspaces.filter(isRecord).map((entry) => {
-      const built = toWorkspace(asText(entry.name), isRecord(entry.lists) ? { ...entry.lists, videos: entry.videos, vision: entry.vision } : entry, asText(entry.id) || undefined);
+      const built = toWorkspace(
+        asText(entry.name),
+        isRecord(entry.lists)
+          ? {
+              ...entry.lists,
+              videos: entry.videos,
+              vision: entry.vision,
+              customPanels: entry.customPanels,
+              panelOverrides: entry.panelOverrides,
+              customVideos: entry.customVideos,
+              customVision: entry.customVision,
+              panelOrder: entry.panelOrder,
+              hiddenFixedPanels: entry.hiddenFixedPanels,
+            }
+          : entry,
+        asText(entry.id) || undefined,
+      );
       return built;
     });
   } else if (isRecord(raw.workspaces)) {

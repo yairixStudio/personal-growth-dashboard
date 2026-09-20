@@ -4,14 +4,19 @@
  *
  *  Two layouts: a card in the grid, and a full-bleed collage on the focus stage. */
 import { useCallback, useState } from 'react';
-import { ImagePlus, Trash2, X } from 'lucide-react';
+import { ImagePlus, Pencil, Trash2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 import { hasFiles, imagePathsFrom, useDropZone } from '../lib/useDropZone';
 import type { VisionImage } from '../types';
 import { Panel } from './Panel';
 
-export const mediaUrl = (image: VisionImage) => `media://vision/${image.file}`;
+export const mediaUrl = (image: VisionImage) =>
+  image.file.startsWith('http') ? image.file : `media://vision/${image.file}`;
+
+/** Custom drag type for swapping a thumbnail into the hero slot — not a file,
+ *  so the panel's OS-file drop zone ignores it. */
+const SWAP_TYPE = 'application/x-vision-swap';
 
 /** Stable pseudo-random in [0,1) from a string — the same image always lands in
  *  the same place, so the collage does not reshuffle on every render. */
@@ -22,6 +27,14 @@ function jitter(seed: string): number {
     h = Math.imul(h, 16777619);
   }
   return (h >>> 0) / 4294967296;
+}
+
+/** Column count that keeps the collage roughly square: 1, 2×1, 2×2, 3×2, 3×3, 4×… */
+function boardColumns(count: number): number {
+  if (count <= 1) return 1;
+  if (count <= 4) return 2;
+  if (count <= 9) return 3;
+  return 4;
 }
 
 interface VisionBoardPanelProps {
@@ -36,6 +49,15 @@ interface VisionBoardPanelProps {
   onAdd: () => void;
   onDropFiles: (paths: string[]) => void;
   onRemove: (image: VisionImage) => void;
+  /** Makes the given image the big one on the card. */
+  onSetHero: (id: string) => void;
+  /** Saves the note written in the grid and shown on the card's back in focus mode. */
+  onSetNote: (id: string, note: string) => void;
+  onFocusHere?: () => void;
+  focusLabel?: string;
+  onRename?: (name: string) => void;
+  onIconChange?: (iconKey: string) => void;
+  onRequestMenu?: (x: number, y: number) => void;
 }
 
 export function VisionBoardPanel({
@@ -49,9 +71,21 @@ export function VisionBoardPanel({
   onAdd,
   onDropFiles,
   onRemove,
+  onSetHero,
+  onSetNote,
+  onFocusHere,
+  focusLabel,
+  onRename,
+  onIconChange,
+  onRequestMenu,
 }: VisionBoardPanelProps) {
   const { t } = useI18n();
   const [lightbox, setLightbox] = useState<VisionImage | null>(null);
+  const [isSwapTarget, setIsSwapTarget] = useState(false);
+  /** Focus mode: the card turned to its back (hover). Grid: the card whose
+   *  note is open for editing. */
+  const [flippedId, setFlippedId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
   const handleDrop = useCallback(
     (data: DataTransfer) => {
@@ -103,34 +137,52 @@ export function VisionBoardPanel({
               <p className="text-lg">{t('vision.dropHint')}</p>
             </div>
           ) : (
-            // More columns on a wide screen keeps each image small enough that
-            // a full board still fits without scrolling.
-            <div className="columns-2 gap-4 py-2 sm:columns-3 lg:columns-4 xl:columns-5 2xl:columns-6 [column-fill:_balance]">
+            // A board, not a strip: columns grow with the count so 4 images sit
+            // 2×2 and 6 sit 3×2, with the whole thing kept to a squarish area.
+            <div
+              className="mx-auto grid gap-5 py-2"
+              style={{
+                gridTemplateColumns: `repeat(${boardColumns(images.length)}, minmax(0, 1fr))`,
+                maxWidth: `${Math.min(boardColumns(images.length) * 22, 72)}rem`,
+              }}
+            >
               {images.map((image) => {
                 const tilt = (jitter(image.id + 'r') - 0.5) * 5;
-                const nudge = (jitter(image.id + 'y') - 0.5) * 22;
+                const nudge = (jitter(image.id + 'y') - 0.5) * 16;
+                const isFlipped = flippedId === image.id;
                 return (
                   <figure
                     key={image.id}
-                    className="group relative mb-4 break-inside-avoid"
+                    className="relative [perspective:1400px]"
                     style={{ transform: `rotate(${tilt.toFixed(2)}deg) translateY(${nudge.toFixed(1)}px)` }}
+                    onMouseEnter={() => setFlippedId(image.id)}
+                    onMouseLeave={() => setFlippedId((current) => (current === image.id ? null : current))}
                   >
-                    <button type="button" onClick={() => setLightbox(image)} className="block w-full" aria-label={t('vision.view', { name: image.name })}>
+                    <div
+                      className="relative aspect-[4/3] w-full transition-transform duration-700 [transform-style:preserve-3d]"
+                      style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+                    >
                       <img
                         src={mediaUrl(image)}
                         alt={image.name}
                         loading="lazy"
-                        className="w-full rounded-xl object-cover shadow-[0_8px_30px_-8px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-[1.03]"
+                        className="absolute inset-0 h-full w-full rounded-xl object-cover shadow-[0_8px_30px_-8px_rgba(0,0,0,0.35)] [backface-visibility:hidden]"
                       />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onRemove(image)}
-                      aria-label={t('vision.remove', { name: image.name })}
-                      className="absolute end-2 top-2 rounded-full bg-white/90 p-1.5 text-red-500 opacity-0 shadow transition-opacity group-hover:opacity-100 focus-visible:opacity-100 dark:bg-gray-900/90"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden />
-                    </button>
+
+                      {/* Back: the same photo behind frosted glass, note centred on it. */}
+                      <div
+                        className="absolute inset-0 overflow-hidden rounded-xl shadow-[0_8px_30px_-8px_rgba(0,0,0,0.35)] [backface-visibility:hidden]"
+                        style={{ transform: 'rotateY(180deg)' }}
+                      >
+                        <img src={mediaUrl(image)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover blur-md" />
+                        <div className="absolute inset-0 bg-white/75 dark:bg-gray-900/75" />
+                        <div className="relative flex h-full w-full items-center justify-center p-6">
+                          <p className="whitespace-pre-wrap text-center text-lg font-medium leading-snug text-gray-900 dark:text-white">
+                            {image.note || <span className="text-gray-500 dark:text-gray-400">{image.name}</span>}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </figure>
                 );
               })}
@@ -151,37 +203,128 @@ export function VisionBoardPanel({
         isDimmed={isDimmed}
         isSpotlit={isSpotlit}
         onSelect={onSelect}
+        onFocusHere={onFocusHere}
+        focusLabel={focusLabel}
+        onRename={onRename}
+        onIconChange={onIconChange}
+      onRequestMenu={onRequestMenu}
         onAdd={onAdd}
         addLabel={t('vision.add')}
         isDropTarget={isOver}
         dropProps={dropProps}
       >
-        <div className="grid grid-cols-2 gap-2" onClick={(event) => event.stopPropagation()}>
-          {images.map((image) => (
-            <figure key={image.id} className="group relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
-              <button type="button" onClick={() => setLightbox(image)} className="h-full w-full" aria-label={t('vision.view', { name: image.name })}>
-                <img
-                  src={mediaUrl(image)}
-                  alt={image.name}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </button>
-              <button
-                type="button"
-                onClick={() => onRemove(image)}
-                aria-label={t('vision.remove', { name: image.name })}
-                className="absolute end-1 top-1 rounded-full bg-white/90 p-1.5 text-red-500 opacity-0 shadow transition-opacity group-hover:opacity-100 focus-visible:opacity-100 dark:bg-gray-900/90"
+        {/* Hero + L: the first image takes a 3×3 block at the start, the next
+            three stack in the column beside it, the rest (and the add tile)
+            run along the row beneath. */}
+        <div className="grid grid-cols-4 gap-1.5" onClick={(event) => event.stopPropagation()}>
+          {images.map((image, index) => {
+            const isHero = index === 0;
+            const isEditing = editingNoteId === image.id;
+
+            const commitNote = (value: string) => {
+              onSetNote(image.id, value);
+              setEditingNoteId(null);
+            };
+
+            return (
+              <figure
+                key={image.id}
+                draggable={!isHero && !isEditing}
+                onDragStart={(event) => {
+                  event.dataTransfer.setData(SWAP_TYPE, image.id);
+                  event.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(event) => {
+                  if (isHero && event.dataTransfer.types.includes(SWAP_TYPE)) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                    setIsSwapTarget(true);
+                  }
+                }}
+                onDragLeave={() => isHero && setIsSwapTarget(false)}
+                onDrop={(event) => {
+                  const id = event.dataTransfer.getData(SWAP_TYPE);
+                  if (!isHero || !id) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setIsSwapTarget(false);
+                  onSetHero(id);
+                }}
+                className={`group relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700 ${
+                  isHero ? 'col-span-3 row-span-3' : isEditing ? '' : 'cursor-grab active:cursor-grabbing'
+                } ${isHero && isSwapTarget ? 'ring-4 ring-blue-500/50' : ''}`}
               >
-                <Trash2 className="h-4 w-4" aria-hidden />
-              </button>
-            </figure>
-          ))}
+                <button
+                  type="button"
+                  onClick={() => setLightbox(image)}
+                  className="h-full w-full"
+                  aria-label={t('vision.view', { name: image.name })}
+                >
+                  <img
+                    src={mediaUrl(image)}
+                    alt={image.name}
+                    loading="lazy"
+                    draggable={false}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                </button>
+
+                {isEditing && (
+                  <div className="absolute inset-0 z-10 overflow-hidden">
+                    <img src={mediaUrl(image)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover blur-md" />
+                    <div className="absolute inset-0 bg-white/75 dark:bg-gray-900/75" />
+                    <textarea
+                      autoFocus
+                      defaultValue={image.note ?? ''}
+                      placeholder={t('vision.notePlaceholder')}
+                      onFocus={(event) => {
+                        const length = event.currentTarget.value.length;
+                        event.currentTarget.setSelectionRange(length, length);
+                      }}
+                      onBlur={(event) => commitNote(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                          event.preventDefault();
+                          commitNote(event.currentTarget.value);
+                        }
+                        if (event.key === 'Escape') setEditingNoteId(null);
+                      }}
+                      className="relative h-full w-full resize-none bg-transparent p-2 text-center text-xs text-gray-900 outline-none placeholder:text-gray-500 dark:text-white dark:placeholder:text-gray-400"
+                    />
+                  </div>
+                )}
+
+                {!isEditing && (
+                  <div className="absolute end-1 top-1 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => setEditingNoteId(image.id)}
+                      aria-label={t('vision.noteEdit', { name: image.name })}
+                      title={t('vision.noteEdit', { name: image.name })}
+                      className="rounded-full bg-white/90 p-1.5 text-gray-400 shadow transition-colors hover:text-blue-500 dark:bg-gray-900/90 dark:text-gray-500"
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(image)}
+                      aria-label={t('vision.remove', { name: image.name })}
+                      className="rounded-full bg-white/90 p-1.5 text-gray-400 shadow transition-colors hover:text-red-500 dark:bg-gray-900/90 dark:text-gray-500"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </button>
+                  </div>
+                )}
+              </figure>
+            );
+          })}
 
           <button
             type="button"
             onClick={onAdd}
-            className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 text-gray-400 transition-colors hover:border-blue-400 hover:text-blue-500 dark:border-gray-600 dark:text-gray-500"
+            className={`flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 text-gray-400 transition-colors hover:border-blue-400 hover:text-blue-500 dark:border-gray-600 dark:text-gray-500 ${
+              images.length === 0 ? 'col-span-4 aspect-[3/1]' : 'aspect-square'
+            }`}
           >
             <ImagePlus className="h-7 w-7" aria-hidden />
             <span className="text-xs">{t('vision.add')}</span>

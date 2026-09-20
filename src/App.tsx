@@ -1,28 +1,32 @@
-/** Composition root: one DragDropContext, one grid generated from PANELS. */
+/** Composition root: one DragDropContext, one grid generated from getPanels(). */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
 import { BackgroundLayer } from './components/BackgroundLayer';
+import { CanvasMenu } from './components/CanvasMenu';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { FocusStage } from './components/FocusStage';
 import { ListPanel } from './components/ListPanel';
+import { Masonry } from './components/Masonry';
 import { MusicPlayer } from './components/MusicPlayer';
+import { PrintSheet } from './components/PrintSheet';
+import { SectionMenu } from './components/SectionMenu';
 import { SettingsDialog } from './components/SettingsDialog';
 import { Toolbar } from './components/Toolbar';
 import { VideoPanel } from './components/VideoPanel';
 import { VisionBoardPanel } from './components/VisionBoardPanel';
 import { WorkspaceSelector, WORKSPACE_DROPPABLE_ID } from './components/WorkspaceSelector';
 import { I18nProvider, useI18n } from './i18n/I18nProvider';
-import { PANELS, PANEL_COUNT, type PanelDef } from './panels';
+import { FIXED_PANELS, getPanels, type PanelDef } from './panels';
 import { sampleLists, sampleVideos } from './sample-content';
 import { usePointerActivity } from './lib/usePointerActivity';
 import { useAppState } from './state/useAppState';
+import { useBrainwaves } from './state/useBrainwaves';
 import { useFullscreen } from './state/useFullscreen';
-import { LIST_IDS, type ListId, type VisionImage, type Workspace } from './types';
+import { LIST_IDS, type VisionImage, type Workspace } from './types';
 
-const listIdFromDroppable = (droppableId: string): ListId | null => {
+const listIdFromDroppable = (droppableId: string): string | null => {
   const [prefix, id] = droppableId.split(':');
-  if (prefix !== 'list') return null;
-  return (LIST_IDS as readonly string[]).includes(id) ? (id as ListId) : null;
+  return prefix === 'list' && id ? id : null;
 };
 
 export default function App() {
@@ -49,6 +53,10 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
   const [direction, setDirection] = useState<1 | -1>(1);
   const [pendingDelete, setPendingDelete] = useState<Workspace | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [isEditingWorkspaceName, setIsEditingWorkspaceName] = useState(false);
+  /** Where the canvas was double-clicked; anchors the "new section" menu. */
+  const [canvasMenu, setCanvasMenu] = useState<{ x: number; y: number } | null>(null);
+  const [sectionMenu, setSectionMenu] = useState<{ x: number; y: number; panel: PanelDef } | null>(null);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const spotlightRef = useRef(0);
   /** How much of the current interval has already run, so a hold is a real
@@ -56,6 +64,14 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
   const elapsedRef = useRef(0);
 
   const pointerActive = usePointerActivity(isFocusMode);
+
+  // One player for the whole app: it must keep playing uninterrupted whether
+  // we're in the normal grid or focus mode, so it's owned here rather than by
+  // whichever <MusicPlayer> happens to be mounted.
+  const brainwaves = useBrainwaves(isVideoPlaying);
+
+  const panels = getPanels(workspace, t);
+  const panelCount = panels.length;
 
   // Anything that should stop the slideshow, in the order worth reporting.
   const holdReason: 'manual' | 'pointer' | 'video' | null = isPaused
@@ -67,13 +83,16 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
         : null;
   const isHeld = holdReason !== null;
 
-  const goTo = useCallback((index: number, how: 1 | -1 = 1) => {
-    const next = ((index % PANEL_COUNT) + PANEL_COUNT) % PANEL_COUNT;
-    setDirection(how);
-    spotlightRef.current = next;
-    elapsedRef.current = 0;
-    setSpotlight(next);
-  }, []);
+  const goTo = useCallback(
+    (index: number, how: 1 | -1 = 1) => {
+      const next = ((index % panelCount) + panelCount) % panelCount;
+      setDirection(how);
+      spotlightRef.current = next;
+      elapsedRef.current = 0;
+      setSpotlight(next);
+    },
+    [panelCount],
+  );
 
   // Focus mode walks the panels on a timer. A hold banks the elapsed time and
   // the next run picks up from there, which keeps the dot animation honest.
@@ -93,7 +112,7 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
         elapsedRef.current = 0;
         setDirection(1);
         setSpotlight((current) => {
-          const next = (current + 1) % PANEL_COUNT;
+          const next = (current + 1) % panelCount;
           spotlightRef.current = next;
           return next;
         });
@@ -105,12 +124,23 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
       window.clearTimeout(timer);
       if (!fired) elapsedRef.current = Math.min(delayMs, Date.now() - startedAt);
     };
-  }, [isFocusMode, isHeld, delayMs, spotlight]);
+  }, [isFocusMode, isHeld, delayMs, spotlight, panelCount]);
 
   // Leaving focus mode should not carry a half-spent interval back in.
   useEffect(() => {
     if (!isFocusMode) elapsedRef.current = 0;
   }, [isFocusMode]);
+
+  // The panel count changes at runtime (switching workspace, adding/removing
+  // a custom panel) — an out-of-range spotlight would index past the end of
+  // `panels` and crash the render below.
+  useEffect(() => {
+    if (spotlightRef.current >= panelCount) {
+      const next = 0;
+      spotlightRef.current = next;
+      setSpotlight(next);
+    }
+  }, [panelCount]);
 
   // F5 starts the run, Esc ends it — the same keys a slideshow uses.
   useEffect(() => {
@@ -166,20 +196,20 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
     [dispatch],
   );
 
-  const addVisionImages = useCallback(async () => {
+  const addVisionImages = useCallback(async (panel?: string) => {
     try {
       const images = await window.desktop.addVisionImages();
-      dispatch({ type: 'vision/add', images });
+      dispatch({ type: 'vision/add', images, panel });
     } catch (error) {
       console.error('Could not add images.', error);
     }
   }, [dispatch]);
 
   const importVisionImages = useCallback(
-    async (paths: string[]) => {
+    async (paths: string[], panel?: string) => {
       try {
         const images = await window.desktop.importVisionImages(paths);
-        dispatch({ type: 'vision/add', images });
+        dispatch({ type: 'vision/add', images, panel });
       } catch (error) {
         console.error('Could not import images.', error);
       }
@@ -188,8 +218,8 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
   );
 
   const removeVisionImage = useCallback(
-    (image: VisionImage) => {
-      dispatch({ type: 'vision/remove', id: image.id });
+    (image: VisionImage, panel?: string) => {
+      dispatch({ type: 'vision/remove', id: image.id, panel });
       void window.desktop.removeVisionImage(image.file).catch((error: unknown) => {
         console.error('Could not delete the image file.', error);
       });
@@ -197,40 +227,60 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
     [dispatch],
   );
 
+  /** Jumps straight into focus mode on one panel, rotation paused — the
+   *  auto-advance only resumes once the user presses play inside focus mode. */
+  const focusOnPanel = useCallback((index: number) => {
+    spotlightRef.current = index;
+    elapsedRef.current = 0;
+    setSpotlight(index);
+    setIsPaused(true);
+    setIsFocusMode(true);
+  }, []);
+
   /** One panel, rendered the same way in the grid and on the focus stage. */
   const renderPanel = useCallback(
-    (panel: PanelDef, bleed = false) => {
+    (panel: PanelDef, bleed = false, index?: number) => {
       const shared = {
-        title: t(panel.titleKey),
+        title: panel.title,
         icon: panel.icon,
         isDimmed: false,
         isSpotlit: false,
         onSelect: undefined,
+        onFocusHere: index === undefined ? undefined : () => focusOnPanel(index),
+        focusLabel: t('panel.focusHere', { title: panel.title }),
+        onRename: (name: string) => dispatch({ type: 'panel/rename', id: panel.key, name }),
+        onIconChange: (icon: string) => dispatch({ type: 'panel/setIcon', id: panel.key, icon }),
+        onRequestMenu:
+          index === undefined ? undefined : (x: number, y: number) => setSectionMenu({ x, y, panel }),
       };
 
-      if (panel.kind === 'list') {
+      if (panel.kind === 'list' && panel.list) {
+        const list = panel.list;
         return (
           <ListPanel
             key={panel.key}
             {...shared}
-            list={panel.list}
-            placeholder={t(panel.placeholderKey)}
-            items={workspace.lists[panel.list]}
-            onAdd={(text) => dispatch({ type: 'item/add', list: panel.list, text })}
-            onUpdate={(id, text) => dispatch({ type: 'item/update', list: panel.list, id, text })}
-            onRemove={(id) => dispatch({ type: 'item/remove', list: panel.list, id })}
+            list={list}
+            placeholder={panel.placeholder ?? ''}
+            items={workspace.lists[list] ?? []}
+            onAdd={(text) => dispatch({ type: 'item/add', list, text })}
+            onUpdate={(id, text) => dispatch({ type: 'item/update', list, id, text })}
+            onRemove={(id) => dispatch({ type: 'item/remove', list, id })}
           />
         );
       }
+
+      // Custom media panels keep their own arrays, keyed by panel id.
+      const media = panel.custom ? panel.key : undefined;
 
       if (panel.kind === 'videos') {
         return (
           <VideoPanel
             key={panel.key}
             {...shared}
-            videos={workspace.videos}
-            onAdd={(title, url) => dispatch({ type: 'video/add', title, url })}
-            onRemove={(id) => dispatch({ type: 'video/remove', id })}
+            videos={media ? (workspace.customVideos[media] ?? []) : workspace.videos}
+            onAdd={(title, url) => dispatch({ type: 'video/add', title, url, panel: media })}
+            onRemove={(id) => dispatch({ type: 'video/remove', id, panel: media })}
             onPlayingChange={setIsVideoPlaying}
           />
         );
@@ -241,14 +291,16 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
           key={panel.key}
           {...shared}
           bleed={bleed}
-          images={workspace.vision}
-          onAdd={() => void addVisionImages()}
-          onDropFiles={(paths) => void importVisionImages(paths)}
-          onRemove={removeVisionImage}
+          images={media ? (workspace.customVision[media] ?? []) : workspace.vision}
+          onAdd={() => void addVisionImages(media)}
+          onDropFiles={(paths) => void importVisionImages(paths, media)}
+          onRemove={(image) => removeVisionImage(image, media)}
+          onSetHero={(id) => dispatch({ type: 'vision/setHero', id, panel: media })}
+          onSetNote={(id, note) => dispatch({ type: 'vision/setNote', id, note, panel: media })}
         />
       );
     },
-    [addVisionImages, dispatch, importVisionImages, removeVisionImage, t, workspace],
+    [addVisionImages, dispatch, focusOnPanel, importVisionImages, removeVisionImage, t, workspace],
   );
 
   /** Fills every panel: lists, videos, and freshly generated vision images. */
@@ -272,11 +324,22 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
   const settingsDialog = showSettings && (
     <SettingsDialog
       settings={state.settings}
+      customPanels={workspace.customPanels}
+      hiddenFixedPanels={workspace.hiddenFixedPanels.map((key) => {
+        const fixed = FIXED_PANELS.find((panel) => panel.key === key);
+        const override = workspace.panelOverrides[key];
+        return { key, title: override?.name ?? (fixed ? t(fixed.titleKey) : key) };
+      })}
       onLanguageChange={(value) => dispatch({ type: 'settings/language', value })}
       onDarkModeChange={(value) => dispatch({ type: 'settings/darkMode', value })}
       onFocusDelayChange={(value) => dispatch({ type: 'settings/focusDelay', value })}
       onBackgroundChange={(file) => dispatch({ type: 'settings/background', file })}
       onOverlayChange={(value) => dispatch({ type: 'settings/overlay', value })}
+      onAddCustomPanel={(name) => dispatch({ type: 'panel/addCustom', name })}
+      onRemoveCustomPanel={(id) => dispatch({ type: 'panel/removeCustom', id })}
+      onRestoreFixedPanel={(id) => dispatch({ type: 'panel/showFixed', id })}
+      onFillSample={() => void fillSample()}
+      onPrint={() => window.print()}
       onClose={() => setShowSettings(false)}
     />
   );
@@ -289,8 +352,18 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
     );
   }
 
-  const activePanel = PANELS[spotlight];
+  // `panels` can shrink (switching workspace, deleting a custom panel) while
+  // `spotlight` is still mid-flight — guard the render, the effect above
+  // settles `spotlight` itself back in range right after.
+  const activePanel = panels[spotlight] ?? panels[0];
   const hasBackground = Boolean(state.settings.background.file);
+  const isWorkspaceEmpty =
+    LIST_IDS.every((list) => workspace.lists[list].length === 0) &&
+    workspace.customPanels.every((panel) => (workspace.lists[panel.id] ?? []).length === 0) &&
+    Object.values(workspace.customVideos).every((videos) => videos.length === 0) &&
+    Object.values(workspace.customVision).every((images) => images.length === 0) &&
+    workspace.videos.length === 0 &&
+    workspace.vision.length === 0;
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -299,8 +372,8 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
       {isFocusMode ? (
         <FocusStage
           index={spotlight}
-          total={PANEL_COUNT}
-          label={t(activePanel.titleKey)}
+          total={panelCount}
+          label={activePanel.title}
           direction={direction}
           isPaused={isHeld}
           holdReason={holdReason}
@@ -323,12 +396,20 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
           onTogglePause={() => setIsPaused((value) => !value)}
           onToggleFullscreen={toggleFullscreen}
           onExit={() => setIsFocusMode(false)}
-          footer={<MusicPlayer variant="minimal" suspended={isVideoPlaying} />}
+          footer={<MusicPlayer variant="minimal" {...brainwaves} />}
         >
           {renderPanel(activePanel, activePanel.kind === 'vision')}
         </FocusStage>
       ) : (
-        <div className={`min-h-screen p-5 transition-colors ${hasBackground ? '' : 'bg-gray-50 dark:bg-gray-900'}`}>
+        <div
+          data-canvas
+          onDoubleClick={(event) => {
+            // Only bare canvas — a card, header or button counts as "something".
+            if (!(event.target as HTMLElement).hasAttribute('data-canvas')) return;
+            setCanvasMenu({ x: event.clientX, y: event.clientY });
+          }}
+          className={`min-h-screen p-5 transition-colors ${hasBackground ? '' : 'bg-gray-50 dark:bg-gray-900'}`}
+        >
           <WorkspaceSelector
             workspaces={state.workspaces}
             currentId={state.currentWorkspaceId}
@@ -340,6 +421,7 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
 
           <Toolbar
             isFullscreen={isFullscreen}
+            isWorkspaceEmpty={isWorkspaceEmpty}
             onEnterFocus={() => {
               setIsFocusMode(true);
               setIsPaused(false);
@@ -350,20 +432,86 @@ function Dashboard({ state, workspace, dispatch, loaded }: DashboardProps) {
           />
 
           <header className="mb-8 mt-3 text-center">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{workspace.name}</h1>
+            {isEditingWorkspaceName ? (
+              <input
+                type="text"
+                defaultValue={workspace.name}
+                autoFocus
+                onFocus={(event) => event.currentTarget.select()}
+                onBlur={(event) => {
+                  const name = event.target.value.trim();
+                  if (name) dispatch({ type: 'workspace/rename', id: workspace.id, name });
+                  setIsEditingWorkspaceName(false);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') event.currentTarget.blur();
+                  if (event.key === 'Escape') setIsEditingWorkspaceName(false);
+                }}
+                className="w-full max-w-md rounded bg-transparent text-center text-3xl font-bold text-gray-900 outline-none ring-2 ring-blue-500/40 dark:text-gray-100"
+              />
+            ) : (
+              <h1
+                onClick={() => setIsEditingWorkspaceName(true)}
+                title={t('workspace.rename', { name: workspace.name })}
+                className="inline-block cursor-pointer rounded px-2 text-3xl font-bold text-gray-900 transition-colors hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800"
+              >
+                {workspace.name}
+              </h1>
+            )}
           </header>
 
-          {/* items-start keeps each card at its own height instead of stretching
-              every card in a row to match the tallest one. */}
-          <div className="mx-auto grid max-w-[2000px] grid-cols-1 items-start gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {PANELS.map((panel) => renderPanel(panel))}
-          </div>
+          <Masonry
+            className="mx-auto max-w-[2000px]"
+            keys={panels.map((panel) => panel.key)}
+            layoutKey={workspace.id}
+            onReorder={(order) => dispatch({ type: 'panel/reorder', order })}
+            handleLabel={t('panel.reorder')}
+          >
+            {panels.map((panel, index) => renderPanel(panel, false, index))}
+          </Masonry>
 
-          <MusicPlayer suspended={isVideoPlaying} />
+          <MusicPlayer {...brainwaves} />
+
+          {canvasMenu && (
+            <CanvasMenu
+              x={canvasMenu.x}
+              y={canvasMenu.y}
+              onCreate={(name, kind) => {
+                dispatch({ type: 'panel/addCustom', name, kind });
+                setCanvasMenu(null);
+              }}
+              onClose={() => setCanvasMenu(null)}
+            />
+          )}
+
+          {sectionMenu && (
+            <SectionMenu
+              x={sectionMenu.x}
+              y={sectionMenu.y}
+              onDuplicate={() =>
+                dispatch({
+                  type: 'panel/duplicate',
+                  id: sectionMenu.panel.key,
+                  kind: sectionMenu.panel.kind,
+                  name: t('canvas.duplicateName', { name: sectionMenu.panel.title }),
+                })
+              }
+              onDelete={() =>
+                dispatch(
+                  sectionMenu.panel.custom
+                    ? { type: 'panel/removeCustom', id: sectionMenu.panel.key }
+                    : { type: 'panel/hideFixed', id: sectionMenu.panel.key },
+                )
+              }
+              onClose={() => setSectionMenu(null)}
+            />
+          )}
         </div>
       )}
 
       {settingsDialog}
+
+      <PrintSheet workspace={workspace} panels={panels} />
 
       {pendingDelete && (
         <ConfirmDialog

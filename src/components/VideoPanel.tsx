@@ -30,6 +30,11 @@ interface VideoPanelProps {
   onRemove: (id: string) => void;
   /** Fires whenever playback starts or stops, so focus mode can hold still. */
   onPlayingChange?: (playing: boolean) => void;
+  onFocusHere?: () => void;
+  focusLabel?: string;
+  onRename?: (name: string) => void;
+  onIconChange?: (iconKey: string) => void;
+  onRequestMenu?: (x: number, y: number) => void;
 }
 
 export function VideoPanel({
@@ -42,6 +47,11 @@ export function VideoPanel({
   onAdd,
   onRemove,
   onPlayingChange,
+  onFocusHere,
+  focusLabel,
+  onRename,
+  onIconChange,
+  onRequestMenu,
 }: VideoPanelProps) {
   const { t } = useI18n();
   const [isAdding, setIsAdding] = useState(false);
@@ -115,6 +125,11 @@ export function VideoPanel({
       isSpotlit={isSpotlit}
       onSelect={onSelect}
       onAdd={() => setIsAdding(true)}
+      onFocusHere={onFocusHere}
+      focusLabel={focusLabel}
+      onRename={onRename}
+      onIconChange={onIconChange}
+      onRequestMenu={onRequestMenu}
       addLabel={t('video.add')}
       isDropTarget={isOver}
       dropProps={dropProps}
@@ -233,7 +248,7 @@ export function VideoPanel({
                   type="button"
                   onClick={() => onRemove(video.id)}
                   aria-label={t('video.remove', { title: video.title })}
-                  className="rounded-full p-1 text-red-500 opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-red-900/40"
+                  className="rounded-full p-1 text-gray-400 hover:text-red-500 dark:text-gray-500 opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-red-900/40"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden />
                 </button>

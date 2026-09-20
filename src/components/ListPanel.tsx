@@ -6,13 +6,13 @@ import { GripVertical, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useI18n } from '../i18n/I18nProvider';
 import { hasText, useDropZone } from '../lib/useDropZone';
-import type { Item, ListId } from '../types';
+import type { Item } from '../types';
 import { Panel } from './Panel';
 
-export const listDroppableId = (list: ListId) => `list:${list}`;
+export const listDroppableId = (list: string) => `list:${list}`;
 
 interface ListPanelProps {
-  list: ListId;
+  list: string;
   title: string;
   icon: LucideIcon;
   placeholder: string;
@@ -23,6 +23,11 @@ interface ListPanelProps {
   onAdd: (text: string) => void;
   onUpdate: (id: string, text: string) => void;
   onRemove: (id: string) => void;
+  onFocusHere?: () => void;
+  focusLabel?: string;
+  onRename?: (name: string) => void;
+  onIconChange?: (iconKey: string) => void;
+  onRequestMenu?: (x: number, y: number) => void;
 }
 
 export function ListPanel({
@@ -37,6 +42,11 @@ export function ListPanel({
   onAdd,
   onUpdate,
   onRemove,
+  onFocusHere,
+  focusLabel,
+  onRename,
+  onIconChange,
+  onRequestMenu,
 }: ListPanelProps) {
   const { t } = useI18n();
   const [isAdding, setIsAdding] = useState(false);
@@ -78,6 +88,11 @@ export function ListPanel({
       onSelect={onSelect}
       onAdd={() => setIsAdding(true)}
       addLabel={t('list.addTo', { title })}
+      onFocusHere={onFocusHere}
+      focusLabel={focusLabel}
+      onRename={onRename}
+      onIconChange={onIconChange}
+      onRequestMenu={onRequestMenu}
       isDropTarget={isOver}
       dropProps={dropProps}
     >
@@ -107,9 +122,7 @@ export function ListPanel({
           <ul
             ref={droppable.innerRef}
             {...droppable.droppableProps}
-            className={`min-h-[2.5rem] rounded-lg transition-colors ${
-              dropSnapshot.isDraggingOver ? 'bg-blue-50/70 dark:bg-blue-900/20' : ''
-            }`}
+            className="min-h-[2.5rem] rounded-lg"
           >
             {items.length === 0 && !dropSnapshot.isDraggingOver && (
               <li className="px-1 py-2 text-sm text-gray-400 dark:text-gray-500">
@@ -136,7 +149,9 @@ export function ListPanel({
                       <span
                         {...draggable.dragHandleProps}
                         aria-label={t('list.reorder')}
-                        className="cursor-grab p-1 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-gray-600"
+                        className={`cursor-grab p-1 text-gray-300 transition-opacity group-hover:opacity-100 dark:text-gray-600 ${
+                          dragSnapshot.isDragging ? 'opacity-100' : 'opacity-0'
+                        }`}
                       >
                         <GripVertical className="h-4 w-4" aria-hidden />
                       </span>
@@ -174,7 +189,7 @@ export function ListPanel({
                         type="button"
                         onClick={() => onRemove(item.id)}
                         aria-label={t('list.delete', { text: item.text })}
-                        className="rounded-full p-1 text-red-500 opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-red-900/40"
+                        className="rounded-full p-1 text-gray-400 hover:text-red-500 dark:text-gray-500 opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-red-900/40"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden />
                       </button>
