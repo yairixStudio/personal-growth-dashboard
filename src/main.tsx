@@ -9,6 +9,13 @@ if (import.meta.env.DEV && !window.desktop) {
   window.desktop = browserShim;
 }
 
+// macOS overlays a thin scrollbar on its own; Windows and Linux draw a wide,
+// always-visible gutter that cuts into the wallpaper. index.css slims it down
+// only where this class is set, so the macOS look is left alone.
+if (!/Macintosh|Mac OS X/.test(navigator.userAgent)) {
+  document.documentElement.classList.add('slim-scrollbars');
+}
+
 const container = document.getElementById('root');
 if (!container) throw new Error('Root element #root is missing from index.html');
 

@@ -26,6 +26,12 @@ const ALLOWED_EXTENSIONS = new Set(IMAGE_EXTENSIONS.map((ext) => `.${ext}`));
 
 const store = new Store<{ state?: unknown }>({ name: 'personal-growth' });
 
+/** Must match `appId` in electron-builder.config.cjs. Windows ties the taskbar
+ *  button, a pinned shortcut and notifications together by this id; the NSIS
+ *  shortcut already carries it, so the running process has to claim it too or
+ *  a pinned icon and the open window show up as two separate taskbar entries. */
+if (process.platform === 'win32') app.setAppUserModelId('com.yairix.personal-growth-dashboard');
+
 /** Absolute paths to the directories holding copied user images. */
 let visionDir = '';
 let backgroundDir = '';
@@ -92,6 +98,10 @@ function createWindow(): BrowserWindow {
     minHeight: 600,
     backgroundColor: '#f9fafb',
     show: false,
+    // Windows and Linux put the default File/Edit/View bar inside the window,
+    // on top of the dashboard; macOS keeps it in the system bar. Hidden until
+    // Alt is pressed — its accelerators (F11, zoom, reload) keep working.
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

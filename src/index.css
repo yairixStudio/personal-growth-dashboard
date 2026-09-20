@@ -28,6 +28,33 @@ html.dark {
   background-color: theme('colors.gray.900');
 }
 
+/* Windows and Linux only (main.tsx sets the class): a slim, rounded thumb on a
+   clear track instead of the wide system gutter. The first selector of each
+   pair is the page's own scrollbar, the second every scrollable area inside. */
+html.slim-scrollbars::-webkit-scrollbar,
+html.slim-scrollbars ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html.slim-scrollbars::-webkit-scrollbar-track,
+html.slim-scrollbars ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html.slim-scrollbars::-webkit-scrollbar-thumb,
+html.slim-scrollbars ::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-color: rgb(107 114 128 / 0.45);
+  background-clip: content-box;
+}
+
+html.slim-scrollbars::-webkit-scrollbar-thumb:hover,
+html.slim-scrollbars ::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(107 114 128 / 0.7);
+}
+
 /* The badge that explains why the countdown is on hold slips in, not blinks. */
 @keyframes hold-badge-in {
   from {
